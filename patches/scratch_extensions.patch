@@ -1,0 +1,9 @@
+--- /usr/lib/scratch2/scratch_extensions/extensions.json	2017-07-03 13:06:32.000000000 +0000
++++ lrextension/extensions.json	2017-09-17 13:13:59.000000000 +0000
+@@ -1,4 +1,5 @@
+ [
+ { "name":"Pi GPIO", "type":"extension", "file":"piGPIOExtension.js", "md5":"pigpio.png", "url":"file:///usr/lib/scratch2/scratch_extensions/gpio.html", "tags":["hardware"]  },
+-{ "name":"Pi SenseHAT", "type":"extension", "file":"piSenseHATExtension.js", "md5":"pisensehat.png", "url":"file:///usr/lib/scratch2/scratch_extensions/sensehat.html", "tags":["hardware"]  }
++{ "name":"Pi SenseHAT", "type":"extension", "file":"piSenseHATExtension.js", "md5":"pisensehat.png", "url":"file:///usr/lib/scratch2/scratch_extensions/sensehat.html", "tags":["hardware"]  },
++{ "name":"Lua Radio Control", "type":"extension", "file":"luaRadioExtension.js", "md5":"luaradio.png", "url":"file:///usr/lib/scratch2/scratch_extensions/luaradio.html", "tags":["hardware"]  }
+ ]
