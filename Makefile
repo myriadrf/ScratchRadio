@@ -28,16 +28,42 @@ $(SCRATCH_EXT_DIR)/luaRadioDriver.lua : scratch2/extensions/luaRadioDriver.lua
 $(SCRATCH_EXT_DIR)/luaradio.html : scratch2/extensions/luaradio.html
 	sudo cp $< $@
 
-# Install Lua Radio.
+# Install LuaRadio.
 /usr/local/bin/luaradio: $(BUILD_DIR)/luaradio/embed/build/libluaradio.a
 	cd $(BUILD_DIR)/luaradio/embed; \
 		sudo make install; \
 		sudo ldconfig
 
 # Build Lua Radio.
-$(BUILD_DIR)/luaradio/embed/build/libluaradio.a: $(BUILD_DIR)/luaradio
+$(BUILD_DIR)/luaradio/embed/build/libluaradio.a: $(BUILD_DIR)/luaradio \
+		$(BUILD_DIR)/luaradio/radio/blocks/signal/manchesterencoder.lua \
+		$(BUILD_DIR)/luaradio/radio/blocks/sources/shorttextmessage.lua \
+		$(BUILD_DIR)/luaradio/radio/blocks/sinks/shorttextmessage.lua \
+		$(BUILD_DIR)/luaradio/radio/blocks/protocol/simpleframer.lua \
+		$(BUILD_DIR)/luaradio/radio/blocks/protocol/simpledeframer.lua
+	# Make sure we only patch the block index file once.
+	if ! grep SimpleDeframerBlock $(BUILD_DIR)/luaradio/radio/blocks/init.lua > /dev/null; \
+		then patch -b $(BUILD_DIR)/luaradio/radio/blocks/init.lua patches/luaradio_radio_blocks_init.patch; \
+		fi
 	cd $(BUILD_DIR)/luaradio/embed; \
 		make lib
+
+# Copy over the new LuaRadio blocks.
+$(BUILD_DIR)/luaradio/radio/blocks/signal/manchesterencoder.lua: \
+		luaradio/radio/blocks/signal/manchesterencoder.lua
+	cp $< $@
+$(BUILD_DIR)/luaradio/radio/blocks/sources/shorttextmessage.lua: \
+		luaradio/radio/blocks/sources/shorttextmessage.lua
+	cp $< $@
+$(BUILD_DIR)/luaradio/radio/blocks/sinks/shorttextmessage.lua: \
+		luaradio/radio/blocks/sinks/shorttextmessage.lua
+	cp $< $@
+$(BUILD_DIR)/luaradio/radio/blocks/protocol/simpleframer.lua: \
+		luaradio/radio/blocks/protocol/simpleframer.lua
+	cp $< $@
+$(BUILD_DIR)/luaradio/radio/blocks/protocol/simpledeframer.lua: \
+		luaradio/radio/blocks/protocol/simpledeframer.lua
+	cp $< $@
 
 # Get the latest code from the LuaRadio repo.
 $(BUILD_DIR)/luaradio: $(BUILD_DIR)
