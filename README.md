@@ -1,5 +1,7 @@
 # Entry Level SDR Educational Tools For Raspberry Pi
 
+![ScratchRadio](/images/ScratchRadio-detail.jpg)
+
 This repository contains entry level educational tools for introducing SDR 
 technology on the Raspberry Pi platform. A Raspberry Pi 3 Model B running 
 Raspbian Stretch is the recommended host configuration.
