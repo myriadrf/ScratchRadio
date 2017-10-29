@@ -40,6 +40,10 @@ function SimpleFramerBlock:initialize()
     self.crc = 0x0000
 end
 
+function SimpleFramerBlock:get_rate()
+    return block.Block.get_rate(self) * 8
+end
+
 local function sendDataByte (out, offset, byteData)
     local byteShift = byteData
     for i = 0, 7 do

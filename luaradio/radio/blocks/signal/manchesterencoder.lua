@@ -32,6 +32,10 @@ function ManchesterEncoderBlock:initialize()
     self.out = types.Bit.vector()
 end
 
+function ManchesterEncoderBlock:get_rate()
+    return block.Block.get_rate(self) * 2
+end
+
 function ManchesterEncoderBlock:process(x)
     local out = self.out:resize(2*x.length)
 
