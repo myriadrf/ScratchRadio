@@ -9,31 +9,38 @@
 --
 -- @category Demodulator
 -- @block OokDemodulatorBlock
--- @tparam[opt=8] int oversamplingFactor Oversampling factor relative to bit rate.
+-- @tparam number baudrate Baudrate in symbols per second
+-- @tparam[opt=false] bool saturate Saturates output to +-1
 --
 -- @signature in:Float32 > out:Float32
 --
 -- @usage
--- local demodulator = radio.OokDemodulatorBlock(factor, saturate)
+-- local demodulator = radio.OokDemodulatorBlock(baudrate, saturate)
 
 local block = require('radio.core.block')
 local types = require('radio.types')
 
 local OokDemodulatorBlock = block.factory("OokDemodulatorBlock")
 
-function OokDemodulatorBlock:instantiate(oversamplingFactor, saturate)
-    if (oversamplingFactor < 2) then
-        error ("Invalid oversampling factor")
-    else
-        self.windowSize = math.ceil(2 * oversamplingFactor / 3)
-        self.dcAlpha = math.exp(-1 / 8 * oversamplingFactor)
-    end
+function OokDemodulatorBlock:instantiate(baudrate, saturate)
+    self.baudrate = assert(baudrate, "Missing argument #1 (baudrate)")
     self.saturate = saturate
 
     self:add_type_signature({block.Input("in", types.Float32)}, {block.Output("out", types.Float32)})
 end
 
 function OokDemodulatorBlock:initialize()
+    oversamplingFactor = self:get_rate() / self.baudrate
+    if (oversamplingFactor < 2) then
+        error ("Invalid oversampling factor")
+    end
+
+    -- Derive the moving average window size and DC offset time constant from
+    -- the ratio of sample rate to baudrate.
+    self.windowSize = math.ceil(2 * oversamplingFactor / 3)
+    self.dcAlpha = math.exp(-1 / 8 * oversamplingFactor)
+
+    -- Initialise the moving average filter and DC offset compensation values.
     self.windowAccVal = 0
     self.windowVals = {}
     for i = 1, self.windowSize do
@@ -74,7 +81,6 @@ function OokDemodulatorBlock:process(x)
             end
         end
         out.data[i] = types.Float32(outVal)
-        print (out.data[i])
     end
 
     return out
