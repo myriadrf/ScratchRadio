@@ -31,14 +31,17 @@ end
 
 function OokDemodulatorBlock:initialize()
     oversamplingFactor = self:get_rate() / self.baudrate
-    if (oversamplingFactor < 2) then
-        error ("Invalid oversampling factor")
+    print ("Demodulator oversampling factor " .. self:get_rate() .. "/" .. self.baudrate)
+    if (oversamplingFactor < 4) then
+        error ("Invalid oversampling factor " .. self:get_rate() .. "/" .. self.baudrate)
     end
 
     -- Derive the moving average window size and DC offset time constant from
     -- the ratio of sample rate to baudrate.
     self.windowSize = math.ceil(2 * oversamplingFactor / 3)
-    self.dcAlpha = math.exp(-1 / 8 * oversamplingFactor)
+    self.dcAlpha = math.exp(-1 / oversamplingFactor)
+    print ("Window Size: ", self.windowSize)
+    print ("DC Alpha: ", self.dcAlpha)
 
     -- Initialise the moving average filter and DC offset compensation values.
     self.windowAccVal = 0
@@ -55,13 +58,14 @@ function OokDemodulatorBlock:process(x)
     local out = self.out:resize(x.length)
 
     for i = 0, x.length-1 do
-        local thisSample = math.abs(x.data[i].value)
+        local thisSample = x.data[i].value
+        local absSample = math.abs(thisSample)
 
         -- Performs windowing function
-        local accVal = self.windowAccVal + thisSample
+        local accVal = self.windowAccVal + absSample
         accVal = accVal - self.windowVals[self.windowIndex]
         self.windowAccVal = accVal
-        self.windowVals[self.windowIndex] = thisSample
+        self.windowVals[self.windowIndex] = absSample
         if (self.windowIndex == self.windowSize) then
             self.windowIndex = 1
         else
