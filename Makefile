@@ -40,7 +40,10 @@ $(BUILD_DIR)/luaradio/embed/build/libluaradio.a: $(BUILD_DIR)/luaradio \
 		$(BUILD_DIR)/luaradio/radio/blocks/sources/shorttextmessage.lua \
 		$(BUILD_DIR)/luaradio/radio/blocks/sinks/shorttextmessage.lua \
 		$(BUILD_DIR)/luaradio/radio/blocks/protocol/simpleframer.lua \
-		$(BUILD_DIR)/luaradio/radio/blocks/protocol/simpledeframer.lua
+		$(BUILD_DIR)/luaradio/radio/blocks/protocol/simpledeframer.lua \
+		$(BUILD_DIR)/luaradio/radio/blocks/signal/ookmodulator.lua \
+		$(BUILD_DIR)/luaradio/radio/blocks/signal/ookdemodulator.lua \
+		$(BUILD_DIR)/luaradio/radio/blocks/signal/bitratesampler.lua
 	# Make sure we only patch the block index file once.
 	if ! grep SimpleDeframerBlock $(BUILD_DIR)/luaradio/radio/blocks/init.lua > /dev/null; \
 		then patch -b $(BUILD_DIR)/luaradio/radio/blocks/init.lua patches/luaradio_radio_blocks_init.patch; \
@@ -64,7 +67,16 @@ $(BUILD_DIR)/luaradio/radio/blocks/protocol/simpleframer.lua: \
 $(BUILD_DIR)/luaradio/radio/blocks/protocol/simpledeframer.lua: \
 		luaradio/radio/blocks/protocol/simpledeframer.lua
 	cp $< $@
-
+$(BUILD_DIR)/luaradio/radio/blocks/signal/ookmodulator.lua: \
+		luaradio/radio/blocks/signal/ookmodulator.lua
+	cp $< $@
+$(BUILD_DIR)/luaradio/radio/blocks/signal/ookdemodulator.lua: \
+		luaradio/radio/blocks/signal/ookdemodulator.lua
+	cp $< $@
+$(BUILD_DIR)/luaradio/radio/blocks/signal/bitratesampler.lua: \
+		luaradio/radio/blocks/signal/bitratesampler.lua
+	cp $< $@
+	
 # Get the latest code from the LuaRadio repo.
 $(BUILD_DIR)/luaradio: $(BUILD_DIR)
 	cd $(BUILD_DIR); \
