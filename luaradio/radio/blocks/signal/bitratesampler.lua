@@ -30,15 +30,14 @@ end
 
 function BitRateSamplerBlock:initialize()
     inputSampleRate = block.Block.get_rate(self)
-    downsamplingFactor = inputSampleRate / self.baudrate
-    print ("Bit rate sampler oversampling factor " .. inputSampleRate .. "/" .. self.baudrate)
+    downsamplingFactor = math.floor (0.5 + inputSampleRate / self.baudrate)
+    print ("Bit rate sampler downsampling factor " .. downsamplingFactor)
     if (downsamplingFactor < 4) then
-        error ("Invalid oversampling factor " .. inputSampleRate .. "/" .. self.baudrate)
+        error ("Invalid downsampling factor " .. downsamplingFactor)
     end
 
-    self.downsample = downsamplingFactor
     self.sampleInterval = downsamplingFactor - 1
-    self.samplePoint = downsamplingFactor / 2
+    self.samplePoint = math.floor (downsamplingFactor / 2)
     self.sampleCount = 0
     self.lastSampleVal = 0
     self.out = types.Bit.vector()
