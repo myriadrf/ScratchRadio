@@ -33,4 +33,4 @@ then
 fi
 
 # Runs the Lua Radio script.
-luajit -- $LUA_SCRIPT_NAME $COMMAND_PIPE_NAME
+LUARADIO_DEBUG=1 luaradio $LUA_SCRIPT_NAME $COMMAND_PIPE_NAME
