@@ -139,6 +139,88 @@ local function createManchesterDecoder (compName, params, comps)
 end
 
 --
+-- Add a new OOK modulator block to the hierarchy.
+--
+local function createOokModulator (compName, params, comps)
+  local handled = false
+  local upsamplingFactor = tonumber (table.remove(params, 1))
+  local modulationRate = tonumber (table.remove(params, 1))
+  if (upsamplingFactor and modulationRate) then
+    handled = true
+    comps[compName] = {
+      inputs = {["in"]=true},
+      outputs = {["out"]=true},
+      block = radio.OokModulatorBlock(upsamplingFactor, modulationRate)}
+  end
+  return handled
+end
+
+--
+-- Add a new OOK demodulator block to the hierarchy.
+--
+local function createOokDemodulator (compName, params, comps)
+  local handled = false
+  local baudRate = tonumber (table.remove(params, 1))
+  if (baudRate) then
+    handled = true
+    comps[compName] = {
+      inputs = {["in"]=true},
+      outputs = {["out"]=true},
+      block = radio.OokDemodulatorBlock(baudRate, false)}
+  end
+  return handled
+end
+
+--
+-- Add a new bit rate sampler block to the hierarchy.
+--
+local function createBitRateSampler (compName, params, comps)
+  local handled = false
+  local baudRate = tonumber (table.remove(params, 1))
+  if (baudRate) then
+    handled = true
+    comps[compName] = {
+      inputs = {["in"]=true},
+      outputs = {["out"]=true},
+      block = radio.BitRateSamplerBlock(baudRate, 0)}
+  end
+  return handled
+end
+
+--
+-- Add a new real valued file source block to the hierarchy.
+--
+local function createRealFileSource (compName, params, comps)
+  local handled = false
+  local fileName = table.remove(params, 1)
+  local sampleRate = tonumber (table.remove(params, 1))
+  if (fileName and sampleRate) then
+    handled = true
+    comps[compName] = {
+      inputs = {},
+      outputs = {["out"]=true},
+      block = radio.RealFileSource(fileName, "s8", sampleRate, true)}
+  end
+  return handled
+end
+
+--
+-- Add a new real valued file sink block to the hierarchy.
+--
+local function createRealFileSink (compName, params, comps)
+  local handled = false
+  local fileName = table.remove(params, 1)
+  if (fileName) then
+    handled = true
+    comps[compName] = {
+      inputs = {["in"]=true},
+      outputs = {},
+      block = radio.RealFileSink(fileName, "s8")}
+  end
+  return handled
+end
+
+--
 -- Create a new component in the specified composite block.
 --
 local function createComponent (params, comps)
@@ -185,6 +267,26 @@ local function createComponent (params, comps)
   -- Add a Manchester decoding block to the hierarchy.
   elseif (compType == "MANCHESTER-DECODER") then
     handled = createManchesterDecoder (compName, params, comps)
+
+  -- Add a OOK modulation block to the hierarchy.
+  elseif (compType == "OOK-MODULATOR") then
+    handled = createOokModulator (compName, params, comps)
+
+  -- Add an OOK demodulator block to the hierarchy.
+  elseif (compType == "OOK-DEMODULATOR") then
+    handled = createOokDemodulator (compName, params, comps)
+
+  -- Add a bit rate sampling block.
+  elseif (compType == "BIT-RATE-SAMPLER") then
+    handled = createBitRateSampler (compName, params, comps)
+
+  -- Add a sample file source block.
+  elseif (compType == "REAL-FILE-SOURCE") then
+    handled = createRealFileSource (compName, params, comps)
+
+  -- Add a sample file sink block.
+  elseif (compType == "REAL-FILE-SINK") then
+    handled = createRealFileSink (compName, params, comps)
   end
 
   return handled
@@ -283,9 +385,18 @@ local function luaRadioControl ()
   -- commands are logged to the standard output.
   while (true) do
     local command
+    local doneSleep = false
     repeat
       command = io.read()
+      if (command == nil) then
+        os.execute("sleep 1")
+        io.write (".")
+        doneSleep = true
+      end
     until (command ~= nil)
+    if (doneSleep) then
+      io.write ("\n")
+    end
 
     -- Force reset, which stops the radio and deletes all components.
     if (command == "RESET") then
@@ -307,8 +418,11 @@ local function luaRadioControl ()
     -- Stop the radio from running.
     elseif (command == "STOP") then
       if (topBlock:status().running) then
+        io.write ("LuaRadio: STOPPING\n")
         topBlock:stop()
-        io.write ("LuaRadio: STOP\n")
+        io.write ("LuaRadio: STOPPED\n")
+      else
+        io.write ("LuaRadio: STOP (NOT RUNNING)\n")
       end
 
     -- Process interactive commands for running radio.

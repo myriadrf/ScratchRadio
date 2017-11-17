@@ -14,7 +14,9 @@
     var rxMsgBufSize = 255;
     var rxMsgBuffer = Buffer.alloc(rxMsgBufSize);
     var rxMsgOffset = 0;
-    
+    var messageBitRate = 9600;
+    var sampleRate = 500000;
+
     // Send a command via the command pipe. Implements lazy open of
     // command pipe file.
     this._sendCommand = function(command) {
@@ -30,10 +32,10 @@
             fs.appendFileSync (txMsgPipe, message + "\n");
         }
     }
-    
+
     // Receive a message via the response message pipe.
     this._receiveMessage = function(callback) {
-    	if (rxMsgPipe == null) {
+        if (rxMsgPipe == null) {
             callback("Broken Rx Message Pipe");
         } else {
             fs.read(rxMsgPipe, rxMsgBuffer, rxMsgOffset, rxMsgBufSize-rxMsgOffset, null,
@@ -45,14 +47,14 @@
                             var rxMsgString;
                             rxMsgOffset += len;
                             for (var i = 0; i < rxMsgOffset; i++) {
-                            
+
                                 // On detecting an end of line character, copy
                                 // the line to the received message string and
                                 // shift the residual buffer contents down.
                                 if (buf[i] == 10) {
                                     rxMsgString = buf.toString('ascii', 0, i);
                                     if (i == rxMsgOffset-1) {
-                                        rxMsgOffset = 0;	    
+                                        rxMsgOffset = 0;
                                     } else {
                                         buf.copy(buf, 0, i+1, rxMsgOffset-i-1);
                                         rxMsgOffset -= i+1;
@@ -60,16 +62,16 @@
                                     break;
                                 }
                             }
-                               
+
                             // Invoke callback or retry.
                             if (rxMsgString == null) {
                                 if (rxMsgOffset >= rxMsgBufSize) {
                                     rxMsgOffset -= 1;
-                                } 
+                                }
                                 this._receiveMessage(callback)
-                            } else { 
+                            } else {
                                 callback(rxMsgString);
-                            } 
+                            }
                         }
                     } else if (err.code == "EAGAIN") {
                         this._receiveMessage(callback)
@@ -90,11 +92,11 @@
         if (txMsgPipe != null) {
             fs.closeSync(txMsgPipe);
             txMsgPipe = null;
-        }	
+        }
         if (rxMsgPipe != null) {
             fs.closeSync(rxMsgPipe);
             rxMsgPipe = null;
-        }	
+        }
     };
 
     // Status reporting code. Checks for the availability of the Lua Radio
@@ -116,11 +118,11 @@
 
     // Block for resetting the Lua Radio service.
     ext.radioReset = function() {
-    	if (radioRunning) {
-    	    this.radioStop()	
-    	}
-    	txMsgStart = false;
-    	rxMsgStart = false;
+        if (radioRunning) {
+            this.radioStop()
+        }
+        txMsgStart = false;
+        rxMsgStart = false;
         this._sendCommand("RESET");
     }
 
@@ -133,28 +135,28 @@
         if (rxMsgStart && (rxMsgPipe == null)) {
             rxMsgPipe = fs.openSync(rxMsgPipeName, C.O_NONBLOCK);
         }
-    	radioRunning = true;
+        radioRunning = true;
     }
-    
+
     // Block for stopping the Lua Radio service.
     ext.radioStop = function() {
         this._sendCommand("STOP");
-    	radioRunning = false;
+        radioRunning = false;
         if (txMsgPipe != null) {
             fs.closeSync(txMsgPipe);
             txMsgPipe = null;
-        }	
+        }
         if (rxMsgPipe != null) {
             fs.closeSync(rxMsgPipe);
             rxMsgPipe = null;
-        }	
+        }
     }
 
     // Determine if the radio has been started.
     ext.isRadioRunning = function() {
-        return radioRunning;	    
+        return radioRunning;
     }
-    
+
     // Block for creating a new SoapySDR radio source.
     ext.createRadioSource = function(name, frequency) {
         var scaledFreq = frequency * 1e6;
@@ -169,13 +171,13 @@
 
     // Block for creating a transmit message source.
     ext.createMessageSource = function(name) {
-    	txMsgStart = true;
+        txMsgStart = true;
         this._sendCommand("CREATE MESSAGE-SOURCE " + name + " " + txMsgPipeName);
     }
 
     // Block for creating a receive message sink.
     ext.createMessageSink = function(name) {
-    	rxMsgStart = true;
+        rxMsgStart = true;
         this._sendCommand("CREATE MESSAGE-SINK " + name + " " + rxMsgPipeName);
     }
 
@@ -198,13 +200,39 @@
     ext.createManchesterDecoder = function(name) {
         this._sendCommand("CREATE MANCHESTER-DECODER " + name);
     }
-    
+
+    // Block for creating an OOK modulator.
+    ext.createOokModulator = function(name) {
+        this._sendCommand("CREATE OOK-MODULATOR " + name + " " +
+            Math.round(sampleRate / (2 * messageBitRate)) + " " + 4);
+    }
+
+    // Block for creating an OOK demodulator.
+    ext.createOokDemodulator = function(name) {
+        this._sendCommand("CREATE OOK-DEMODULATOR " + name + " " + (messageBitRate * 2));
+    }
+
+    // Block for creating a bit rate sampler.
+    ext.createBitRateSampler = function(name) {
+        this._sendCommand("CREATE BIT-RATE-SAMPLER " + name + " " + (messageBitRate * 2));
+    }
+
+    // Block for creating the real valued file sink.
+    ext.createRealFileSink = function(name, fileName) {
+        this._sendCommand("CREATE REAL-FILE-SINK " + name + " " + fileName);
+    }
+
+    // Block for creating the real valued file source.
+    ext.createRealFileSource = function(name, fileName) {
+        this._sendCommand("CREATE REAL-FILE-SOURCE " + name + " " + fileName + " " + sampleRate);
+    }
+
     // Block for creating a simple connection between a producer with a
     // single 'out' port and a consumer with a single 'in' port.
     ext.makeSimpleConnection = function(producer, consumer) {
         this._sendCommand("CONNECT " + producer + " out " + consumer + " in");
     }
-    
+
     // Send a fixed message over the radio.
     ext.sendSimpleMessage = function(message) {
         this._sendMessage(message);
@@ -214,7 +242,7 @@
     ext.receiveSimpleMessage = function(callback) {
         this._receiveMessage(callback);
     }
-    
+
     // Block and block menu descriptions
     var descriptor = {
         blocks: [
@@ -231,6 +259,11 @@
             [' ', 'create simple deframer %s', 'createSimpleDeframer', 'rx-deframer'],
             [' ', 'create Manchester encoder %s', 'createManchesterEncoder', 'mcr-encoder'],
             [' ', 'create Manchester decoder %s', 'createManchesterDecoder', 'mcr-decoder'],
+            [' ', 'create OOK modulator %s', 'createOokModulator', 'ook-modulator'],
+            [' ', 'create OOK demodulator %s', 'createOokDemodulator', 'ook-demodulator'],
+            [' ', 'create bit rate sampler %s', 'createBitRateSampler', 'bit-sampler'],
+            [' ', 'create sink %s to file %s', 'createRealFileSink', 'sample-sink', 'file-name'],
+            [' ', 'create source %s from file %s', 'createRealFileSource', 'sample-source', 'file-name'],
             [' ', 'connect %s to %s', 'makeSimpleConnection', 'producer', 'consumer'],
             [' ', 'send message %s', 'sendSimpleMessage', 'Hello World'],
             ['R', 'receive message', 'receiveSimpleMessage'],
