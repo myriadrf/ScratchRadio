@@ -14,8 +14,8 @@
     var rxMsgBufSize = 255;
     var rxMsgBuffer = Buffer.alloc(rxMsgBufSize);
     var rxMsgOffset = 0;
-    var messageBitRate = 9600;
-    var sampleRate = 500000;
+    var messageBitRate = 800;
+    var sampleRate = 499200;
 
     // Send a command via the command pipe. Implements lazy open of
     // command pipe file.
@@ -160,7 +160,13 @@
     // Block for creating a new SoapySDR radio source.
     ext.createRadioSource = function(name, frequency) {
         var scaledFreq = frequency * 1e6;
-        this._sendCommand("CREATE RADIO-SOURCE " + name + " " + scaledFreq);
+        this._sendCommand("CREATE RADIO-SOURCE " + name + " " + scaledFreq + " " + sampleRate);
+    };
+
+    // Block for creating a new SoapySDR radio sink.
+    ext.createRadioSink = function(name, frequency) {
+        var scaledFreq = frequency * 1e6;
+        this._sendCommand("CREATE RADIO-SINK " + name + " " + scaledFreq + " " + sampleRate);
     };
 
     // Block for creating a new display plot sink.
@@ -172,7 +178,8 @@
     // Block for creating a transmit message source.
     ext.createMessageSource = function(name) {
         txMsgStart = true;
-        this._sendCommand("CREATE MESSAGE-SOURCE " + name + " " + txMsgPipeName);
+        this._sendCommand("CREATE MESSAGE-SOURCE " + name +
+            " " + txMsgPipeName + " " + (messageBitRate / 8));
     }
 
     // Block for creating a receive message sink.
@@ -202,9 +209,10 @@
     }
 
     // Block for creating an OOK modulator.
-    ext.createOokModulator = function(name) {
+    ext.createOokModulator = function(name, intFreq) {
         this._sendCommand("CREATE OOK-MODULATOR " + name + " " +
-            Math.round(sampleRate / (2 * messageBitRate)) + " " + 4);
+            Math.round(sampleRate / (2 * messageBitRate)) + " " +
+            ((intFreq * 1000) / (2 * messageBitRate)));
     }
 
     // Block for creating an OOK demodulator.
@@ -225,6 +233,19 @@
     // Block for creating the real valued file source.
     ext.createRealFileSource = function(name, fileName) {
         this._sendCommand("CREATE REAL-FILE-SOURCE " + name + " " + fileName + " " + sampleRate);
+    }
+
+    // Block for creating a new low pass filter.
+    ext.createLowPassFilter = function(name, bandwidth) {
+        this._sendCommand("CREATE LOW-PASS-FILTER " + name + " " +
+            ((bandwidth * 2000) / sampleRate));
+    }
+
+    // Block for creating a new band pass filter.
+    ext.createBandPassFilter = function(name, lowCutoff, highCutoff) {
+        this._sendCommand("CREATE BAND-PASS-FILTER " + name + " " +
+            ((lowCutoff * 2000) / sampleRate) + " " +
+            ((highCutoff * 2000) / sampleRate));
     }
 
     // Block for creating a simple connection between a producer with a
@@ -251,7 +272,8 @@
             [' ', 'start radio', 'radioStart'],
             [' ', 'stop radio', 'radioStop'],
             ['b', 'radio running', 'isRadioRunning'],
-            [' ', 'create radio source %s at %n MHz', 'createRadioSource', 'lime-source', 868],
+            [' ', 'create radio source %s at %n MHz', 'createRadioSource', 'lime-source', 433],
+            [' ', 'create radio sink %s at %n MHz', 'createRadioSink', 'lime-sink', 433],
             [' ', 'create display sink %s', 'createDisplaySink', 'spectrum'],
             [' ', 'create message source %s', 'createMessageSource', 'tx-message'],
             [' ', 'create message sink %s', 'createMessageSink', 'rx-message'],
@@ -259,11 +281,13 @@
             [' ', 'create simple deframer %s', 'createSimpleDeframer', 'rx-deframer'],
             [' ', 'create Manchester encoder %s', 'createManchesterEncoder', 'mcr-encoder'],
             [' ', 'create Manchester decoder %s', 'createManchesterDecoder', 'mcr-decoder'],
-            [' ', 'create OOK modulator %s', 'createOokModulator', 'ook-modulator'],
+            [' ', 'create OOK modulator %s at %n KHz', 'createOokModulator', 'ook-modulator', 25],
             [' ', 'create OOK demodulator %s', 'createOokDemodulator', 'ook-demodulator'],
             [' ', 'create bit rate sampler %s', 'createBitRateSampler', 'bit-sampler'],
             [' ', 'create sink %s to file %s', 'createRealFileSink', 'sample-sink', 'file-name'],
             [' ', 'create source %s from file %s', 'createRealFileSource', 'sample-source', 'file-name'],
+            [' ', 'create low pass filter %s with bandwidth %n KHz', 'createLowPassFilter', 'lp-filter', 100],
+            [' ', 'create band pass filter %s with pass band %n KHz to %n KHz', 'createBandPassFilter', 'bp-filter', 50, 100],
             [' ', 'connect %s to %s', 'makeSimpleConnection', 'producer', 'consumer'],
             [' ', 'send message %s', 'sendSimpleMessage', 'Hello World'],
             ['R', 'receive message', 'receiveSimpleMessage'],

@@ -5,8 +5,8 @@
 -- interpreted as a length byte which specifies the number of subsequent bytes
 -- that form the message to be transmitted.
 -- The output consists of frames formatted as follows:
---   Preamble       : 0x55 0x55 0x55
---   Start of frame : 0x7E
+--   Preamble       : 0xA5 0xF0 0xA5 0xF0 0xA5 0xF0
+--   Start of frame : 0x7E 0x81 0xC3 0x3C
 --   Frame length   : Number of bytes in body (excludes length and CRC bytes)
 --   Payload        : Payload data (integer number of bytes, at least one)
 --   CRC            : CRC over all payload bytes including the length byte
@@ -78,13 +78,19 @@ function SimpleFramerBlock:process(x)
                 sendIdleByte(out, offset+i)
             else
                 -- header insertion
-                out = self.out:resize(self.out.length+32)
-                sendDataByte(out, offset+i, 0x55)
-                sendDataByte(out, offset+i+1, 0x55)
-                sendDataByte(out, offset+i+2, 0x55)
-                sendDataByte(out, offset+i+3, 0x7E)
-                sendDataByte(out, offset+i+4, thisByte.value)
-                offset = offset + 4
+                out = self.out:resize(self.out.length+80)
+                sendDataByte(out, offset+i, 0xA5)
+                sendDataByte(out, offset+i+1, 0xF0)
+                sendDataByte(out, offset+i+2, 0xA5)
+                sendDataByte(out, offset+i+3, 0xF0)
+                sendDataByte(out, offset+i+4, 0xA5)
+                sendDataByte(out, offset+i+5, 0xF0)
+                sendDataByte(out, offset+i+6, 0x7E)
+                sendDataByte(out, offset+i+7, 0x81)
+                sendDataByte(out, offset+i+8, 0xC3)
+                sendDataByte(out, offset+i+9, 0x3C)
+                sendDataByte(out, offset+i+10, thisByte.value)
+                offset = offset + 10
                 self.idle = false
                 self.byteCount = thisByte.value
                 self.crc = updateCrc(0xFFFF, thisByte.value)

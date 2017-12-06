@@ -7,6 +7,9 @@
 
 local radio = require('radio')
 
+local minSampleRate = 100000
+local maxSampleRate = 4000000
+
 --
 -- Split the command input into command name and parameters.
 --
@@ -21,22 +24,54 @@ local function splitParams (cmd)
 end
 
 --
--- Add a new radio source data block to the hierarchy. This uses the
--- Lime Microsystems SoapySDR driver which is configured for a sample
--- rate of 4 MHz and a frontend filter bandwidth of 1.5 MHz. The low
--- frequency antenna A is used as the input.
+-- Add a new radio source data block to the hierarchy. This uses the Lime
+-- Microsystems SoapySDR driver which is configured for a frontend filter
+-- bandwidth of 1.5 MHz.
 --
 local function createRadioSource (compName, params, comps)
   local handled = false
   local tuningFreq = tonumber (table.remove(params, 1))
-  if (tuningFreq) then
+  local sampleRate = tonumber (table.remove(params, 1))
+  if (tuningFreq and (tuningFreq > 0) and sampleRate and
+    (sampleRate >= minSampleRate) and (sampleRate <= maxSampleRate)) then
     handled = true
+    local complexToRealBlock = radio.ComplexToRealBlock()
+    local radioBlock = radio.SoapySDRSource("lime", tuningFreq, sampleRate, {bandwidth = 1.5e6, gain = 80})
+    local compositeBlock = radio.CompositeBlock()
+    compositeBlock:add_type_signature({}, {radio.block.Output("out", radio.types.Float32)})
+    compositeBlock:connect(radioBlock, complexToRealBlock)
+    compositeBlock:connect(compositeBlock, 'out', complexToRealBlock, 'out')
     comps[compName] = {
       isRadioSource = true,
       inputs = {},
       outputs = {["out"]=true},
-      block = radio.SoapySDRSource("lime", tuningFreq, 4e6,
-        {gain = 80, bandwidth = 1.5e6, antenna="LNAL"})}
+      block = compositeBlock}
+  end
+  return handled
+end
+
+--
+-- Add a new radio sink block to the hierarchy. This uses the Lime Microsystems
+-- SoapySDR driver which is configured for a frontend filter bandwidth of 5 MHz.
+--
+local function createRadioSink (compName, params, comps)
+  local handled = false
+  local tuningFreq = tonumber (table.remove(params, 1))
+  local sampleRate = tonumber (table.remove(params, 1))
+  if (tuningFreq and (tuningFreq > 0) and sampleRate and
+    (sampleRate >= minSampleRate) and (sampleRate <= maxSampleRate)) then
+    handled = true
+    local realToComplexBlock = radio.RealToComplexBlock()
+    local radioBlock = radio.SoapySDRSink("lime", tuningFreq, {bandwidth = 5e6, gain = 40})
+    local compositeBlock = radio.CompositeBlock()
+    compositeBlock:add_type_signature({radio.block.Input("in", radio.types.Float32)}, {})
+    compositeBlock:connect(realToComplexBlock, radioBlock)
+    compositeBlock:connect(compositeBlock, 'in', realToComplexBlock, 'in')
+    comps[compName] = {
+      isRadioSource = true,
+      inputs = {["in"]=true},
+      outputs = {},
+      block = compositeBlock}
   end
   return handled
 end
@@ -62,13 +97,14 @@ end
 local function createMessageSource (compName, params, comps)
   local handled = false
   local sourceFileName = table.remove(params, 1)
-  if (sourceFileName) then
+  local cpsRate = tonumber (table.remove(params, 1))
+  if (sourceFileName and cpsRate) then
     handled = true
     comps[compName] = {
       isMessageSource = true,
       inputs = {},
       outputs = {["out"]=true},
-      block = radio.ShortTextMessageSource(sourceFileName, 1200)}
+      block = radio.ShortTextMessageSource(sourceFileName, cpsRate)}
   end
   return handled
 end
@@ -221,6 +257,72 @@ local function createRealFileSink (compName, params, comps)
 end
 
 --
+-- Add a new low pass filter block to the hierarchy.
+--
+local function createLowPassFilter (compName, params, comps)
+  local handled = false
+  local bandwidth = tonumber (table.remove(params, 1))
+  if (bandwidth and (bandwidth < 1) and (bandwidth > 0)) then
+    handled = true
+    comps[compName] = {
+      inputs = {["in"]=true},
+      outputs = {["out"]=true},
+      block = radio.LowpassFilterBlock(127, bandwidth, 1)}
+  end
+  return handled
+end
+
+--
+-- Add a new band pass filter block to the hierarchy.
+--
+local function createBandPassFilter (compName, params, comps)
+  local handled = false
+  local lowCutoff = tonumber (table.remove(params, 1))
+  local highCutoff = tonumber (table.remove(params, 1))
+  if (lowCutoff and highCutoff and (lowCutoff > 0) and
+    (highCutoff < 1) and (lowCutoff < highCutoff)) then
+    handled = true
+    comps[compName] = {
+      inputs = {["in"]=true},
+      outputs = {["out"]=true},
+      block = radio.BandpassFilterBlock(127, {lowCutoff, highCutoff}, 1)}
+  end
+  return handled
+end
+
+--
+-- Add a new decimation filter block to the hierarchy.
+--
+local function createDecimationFilter (compName, params, comps)
+  local handled = false
+  local decimationFactor = tonumber (table.remove(params, 1))
+  if (decimationFactor) then
+    handled = true
+    comps[compName] = {
+      inputs = {["in"]=true},
+      outputs = {["out"]=true},
+      block = radio.DecimatorBlock(decimationFactor)}
+  end
+  return handled
+end
+
+--
+-- Add a new interpolation filter block to the hierarchy.
+--
+local function createInterpolationFilter (compName, params, comps)
+  local handled = false
+  local interpolationFactor = tonumber (table.remove(params, 1))
+  if (interpolationFactor) then
+    handled = true
+    comps[compName] = {
+      inputs = {["in"]=true},
+      outputs = {["out"]=true},
+      block = radio.InterpolatorBlock(interpolationFactor)}
+  end
+  return handled
+end
+
+--
 -- Create a new component in the specified composite block.
 --
 local function createComponent (params, comps)
@@ -239,6 +341,10 @@ local function createComponent (params, comps)
   -- Create a new radio source component.
   elseif (compType == "RADIO-SOURCE") then
     handled = createRadioSource (compName, params, comps)
+
+  -- Create a new radio sink component.
+  elseif (compType == "RADIO-SINK") then
+    handled = createRadioSink (compName, params, comps)
 
   -- Add a new spectrum display sink to the hierarchy.
   elseif (compType == "DISPLAY-SINK") then
@@ -287,6 +393,22 @@ local function createComponent (params, comps)
   -- Add a sample file sink block.
   elseif (compType == "REAL-FILE-SINK") then
     handled = createRealFileSink (compName, params, comps)
+
+  -- Add a low pass filter block.
+  elseif (compType == "LOW-PASS-FILTER") then
+    handled = createLowPassFilter (compName, params, comps)
+
+  -- Add a band pass filter block.
+  elseif (compType == "BAND-PASS-FILTER") then
+    handled = createBandPassFilter (compName, params, comps)
+
+  -- Add a decimation filter block.
+  elseif (compType == "DECIMATION-FILTER") then
+    handled = createDecimationFilter (compName, params, comps)
+
+  -- Add an interpolation filter block.
+  elseif (compType == "INTERPOLATION-FILTER") then
+    handled = createInterpolationFilter (compName, params, comps)
   end
 
   return handled

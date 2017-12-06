@@ -1,8 +1,8 @@
 ---
 -- Implements a simple deframer block which accepts a bitstream formatted as
 -- in:Bit. The input consists of frames formatted as follows:
---   Preamble       : 0x55 0x55 0x55
---   Start of frame : 0x7E
+--   Preamble       : 0x55 0xAA 0x55 0xAA 0x55 0xAA
+--   Start of frame : 0x7E 0x81 0xC3 0x3C
 --   Frame length   : Number of bytes in body (excludes length and CRC bytes)
 --   Payload        : Payload data (integer number of bytes, at least one)
 --   CRC            : CRC over all payload bytes including the length byte
@@ -39,9 +39,14 @@ function SimpleDeframerBlock:initialize()
     self.byteCount = 0
     self.bitCount = 0
     self.rxByte = 0
+    self.rxSync = 0
     self.rxMessage = types.Byte.vector()
     self.rxOffset = 0
     self.crc = 0x0000
+end
+
+function SimpleDeframerBlock:get_rate()
+    return block.Block.get_rate(self) / 8
 end
 
 local function updateCrc (crc, byteData)
@@ -55,17 +60,19 @@ function SimpleDeframerBlock:process(x)
 
     for i = 0, x.length-1 do
         self.rxByte = bit.rshift(self.rxByte, 1)
+        self.rxSync = bit.rshift(self.rxSync, 1)
         if (x.data[i].value ~= 0) then
             self.rxByte = bit.bor(self.rxByte, 0x80)
+            self.rxSync = bit.bor(self.rxSync, 0x80000000)
         end
         self.bitCount = bit.band(self.bitCount+1, 0x7)
 
         local rxByte = self.rxByte
         local rxMessage = self.rxMessage
 
-        -- search for start of frame byte
+        -- search for start of frame sync word
         if (self.state == states.idle) then
-            if (rxByte == 0x7E) then
+            if (self.rxSync == 0x3CC3817E) then
               self.state = states.getLength
               self.bitCount = 0
             end
