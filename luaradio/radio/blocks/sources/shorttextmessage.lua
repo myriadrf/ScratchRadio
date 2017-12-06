@@ -8,7 +8,8 @@ local ffi = require('ffi')
 local block = require('radio.core.block')
 local types = require('radio.types')
 
-local paddingLen = 128
+local paddingLen = 256
+local txLatency = 10
 
 --- The libc functions used by this process.
 ffi.cdef[[
@@ -32,7 +33,6 @@ function ShortTextMessageSource:instantiate(file, rate)
 end
 
 function ShortTextMessageSource:get_rate()
-    print ("Short text message rate = ", self.rate)
     return self.rate
 end
 
@@ -56,15 +56,10 @@ function ShortTextMessageSource:initialize()
     self.offset = 1;
     self.buffer = types.Byte.vector()
     self.padding = types.Byte.vector()
-    self.buffer:resize(paddingLen)
     self.padding:resize(paddingLen)
     for i = 0, paddingLen-1 do
-        self.buffer.data[i] = types.Byte(0x00)
         self.padding.data[i] = types.Byte(0x00)
-    end
-
-    -- Set slow polling flag.
-    self.slowPolling = true
+    end    
 end
 
 local function getNextChar (source)
@@ -91,21 +86,21 @@ local function getNextChar (source)
 end
 
 function ShortTextMessageSource:process()
-    local buffer = self.buffer:resize(paddingLen + 256)
+    local buffer = self.buffer:resize(256)
 
+    -- Timestamp used for rate limiting.
+    if (not self.timestamp) then
+        self.timestamp = os.time() - txLatency    
+    end
+        
+    -- Idle until timestamp reached.
+    while (os.time() < self.timestamp) do
+        os.execute ("sleep " .. (math.ceil (self.timestamp - os.time())))
+    end
+    
     -- Read in individual characters if available.
     local messageLen = 0
     local nextChar = getNextChar(self)
-
-    -- Implement slow polling for the next message. This prevents further data
-    -- output which may force an underflow condition on the radio output.
-    if (self.slowPolling) then
-        while (nextChar < 0) do
-            os.execute("sleep 1")
-            nextChar = getNextChar(self)
-        end
-        self.slowPolling = false
-    end
 
     while (nextChar >= 0) and (messageLen == 0) do
         if (nextChar == 0x0A) then
@@ -113,7 +108,7 @@ function ShortTextMessageSource:process()
             self.offset = 1
         else
             if (self.offset < 256) then
-                buffer.data[paddingLen + self.offset] = types.Byte(nextChar)
+                buffer.data[self.offset] = types.Byte(nextChar)
                 self.offset = self.offset + 1
             end
             nextChar = getNextChar(self)
@@ -122,13 +117,14 @@ function ShortTextMessageSource:process()
 
     -- Insert fixed size idle sequence, discarding oversize messages
     if (messageLen == 0) or (messageLen > 240) then
-        self.slowPolling = true
+        self.timestamp = self.timestamp + paddingLen / self.rate
         return self.padding
 
     -- Return message buffer
     else
-        buffer:resize(paddingLen + messageLen)
-        buffer.data[paddingLen] = types.Byte(messageLen-1)
+        self.timestamp = self.timestamp + messageLen / self.rate
+        buffer:resize(messageLen)
+        buffer.data[0] = types.Byte(messageLen-1)
         return buffer
     end
 end
