@@ -38,19 +38,26 @@ function OokDemodulatorBlock:initialize()
 
     -- Derive the moving average window size and DC offset time constant from
     -- the ratio of sample rate to baudrate.
-    self.windowSize = math.ceil(2 * oversamplingFactor / 3)
-    self.dcAlpha = math.exp(-1 / oversamplingFactor)
-    print ("Window Size: ", self.windowSize)
-    print ("DC Alpha: ", self.dcAlpha)
+    self.bitWindowSize = math.ceil(7 * oversamplingFactor / 8)
+    self.dcoWindowSize = 24 * self.bitWindowSize
+    print ("Bit Window Size: ", self.bitWindowSize)
+    print ("DC Offset Window Size: ", self.dcoWindowSize)
 
     -- Initialise the moving average filter and DC offset compensation values.
-    self.windowAccVal = 0
-    self.windowVals = {}
-    for i = 1, self.windowSize do
-        self.windowVals[i] = 0
+    self.bitWindowAccVal = 0
+    self.bitWindowVals = {}
+    for i = 1, self.bitWindowSize do
+        self.bitWindowVals[i] = 0
     end
-    self.windowIndex = 1
-    self.dcOffset = 0
+    self.bitWindowIndex = 1
+
+    self.dcoWindowAccVal = 0
+    self.dcoWindowVals = {}
+    for i = 1, self.dcoWindowSize do
+        self.dcoWindowVals[i] = 0
+    end
+    self.dcoWindowIndex = 1
+
     self.out = types.Float32.vector()
 end
 
@@ -61,22 +68,30 @@ function OokDemodulatorBlock:process(x)
         local thisSample = x.data[i].value
         local absSample = math.abs(thisSample)
 
-        -- Performs windowing function
-        local accVal = self.windowAccVal + absSample
-        accVal = accVal - self.windowVals[self.windowIndex]
-        self.windowAccVal = accVal
-        self.windowVals[self.windowIndex] = absSample
-        if (self.windowIndex == self.windowSize) then
-            self.windowIndex = 1
+        -- Implements bit based moving average filter
+        local bitDelaySample = self.bitWindowVals[self.bitWindowIndex]
+        local bitAccVal = self.bitWindowAccVal + absSample - bitDelaySample
+        self.bitWindowAccVal = bitAccVal
+        self.bitWindowVals[self.bitWindowIndex] = absSample
+        if (self.bitWindowIndex == self.bitWindowSize) then
+            self.bitWindowIndex = 1
         else
-            self.windowIndex = self.windowIndex + 1
+            self.bitWindowIndex = self.bitWindowIndex + 1
         end
 
-        -- Implements DC offset compensation
-        self.dcOffset = self.dcOffset * self.dcAlpha + accVal * (1 - self.dcAlpha)
+        -- Implements DC offset moving average filter on delayed sample
+        local dcoDelaySample = self.dcoWindowVals[self.dcoWindowIndex]
+        local dcoAccVal = self.dcoWindowAccVal + bitDelaySample - dcoDelaySample
+        self.dcoWindowAccVal = dcoAccVal
+        self.dcoWindowVals[self.dcoWindowIndex] = bitDelaySample
+        if (self.dcoWindowIndex == self.dcoWindowSize) then
+            self.dcoWindowIndex = 1
+        else
+            self.dcoWindowIndex = self.dcoWindowIndex + 1
+        end
 
         -- Apply DC offset to windowed value
-        local outVal = accVal - self.dcOffset
+        local outVal = bitAccVal / self.bitWindowSize - dcoAccVal / self.dcoWindowSize
         if (self.saturate == true) then
             if (outVal > 0) then
                 outVal = 1
