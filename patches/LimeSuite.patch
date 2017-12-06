@@ -1,18 +1,3 @@
-diff --git a/CMakeLists.txt b/CMakeLists.txt
-index bf98289..7316268 100644
---- a/CMakeLists.txt
-+++ b/CMakeLists.txt
-@@ -85,7 +85,9 @@ if(CMAKE_COMPILER_IS_GNUCXX)
-     SET_PROPERTY(CACHE ENABLE_SIMD_FLAGS PROPERTY STRINGS none native SSE3 SSE4.2 AVX AVX2) 
- 
-     if(${ENABLE_SIMD_FLAGS} MATCHES "native")
--     	add_definitions(-march=native -mfpmath=both)
-+        # The fpmath option is x86 only.
-+        # add_definitions(-march=native -mfpmath=both)
-+        add_definitions(-march=native)
-         message(STATUS "Enabling native optimizations")
-     elseif(${ENABLE_SIMD_FLAGS} MATCHES "AVX2")
-     	add_definitions(-mmmx -msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -mpopcnt -mavx -mfma -mavx2 -mfpmath=both)
 diff --git a/SoapyLMS7/Settings.cpp b/SoapyLMS7/Settings.cpp
 index 4de1ea0..bfd68df 100644
 --- a/SoapyLMS7/Settings.cpp
