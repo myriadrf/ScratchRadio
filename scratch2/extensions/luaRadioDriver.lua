@@ -62,7 +62,7 @@ local function createRadioSink (compName, params, comps)
     (sampleRate >= minSampleRate) and (sampleRate <= maxSampleRate)) then
     handled = true
     local realToComplexBlock = radio.RealToComplexBlock()
-    local radioBlock = radio.SoapySDRSink("lime", tuningFreq, {bandwidth = 5e6, gain = 40})
+    local radioBlock = radio.SoapySDRSink("lime", tuningFreq, {bandwidth = 5e6, gain = 40, antenna = "BAND2"})
     local compositeBlock = radio.CompositeBlock()
     compositeBlock:add_type_signature({radio.block.Input("in", radio.types.Float32)}, {})
     compositeBlock:connect(realToComplexBlock, radioBlock)
