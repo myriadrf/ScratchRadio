@@ -12,7 +12,7 @@
 -- @tparam number baudrate Baudrate in symbols per second
 -- @tparam[opt=false] bool saturate Saturates output to +-1
 --
--- @signature in:Float32 > out:Float32
+-- @signature in:ComplexFloat32 > out:Float32
 --
 -- @usage
 -- local demodulator = radio.OokDemodulatorBlock(baudrate, saturate)
@@ -26,7 +26,7 @@ function OokDemodulatorBlock:instantiate(baudrate, saturate)
     self.baudrate = assert(baudrate, "Missing argument #1 (baudrate)")
     self.saturate = saturate
 
-    self:add_type_signature({block.Input("in", types.Float32)}, {block.Output("out", types.Float32)})
+    self:add_type_signature({block.Input("in", types.ComplexFloat32)}, {block.Output("out", types.Float32)})
 end
 
 function OokDemodulatorBlock:initialize()
@@ -65,8 +65,9 @@ function OokDemodulatorBlock:process(x)
     local out = self.out:resize(x.length)
 
     for i = 0, x.length-1 do
-        local thisSample = x.data[i].value
-        local absSample = math.abs(thisSample)
+        local thisReal = x.data[i].real
+        local thisImag = x.data[i].imag
+        local absSample = math.sqrt(thisReal * thisReal + thisImag * thisImag)
 
         -- Implements bit based moving average filter
         local bitDelaySample = self.bitWindowVals[self.bitWindowIndex]

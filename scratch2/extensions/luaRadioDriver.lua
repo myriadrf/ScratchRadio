@@ -35,17 +35,12 @@ local function createRadioSource (compName, params, comps)
   if (tuningFreq and (tuningFreq > 0) and sampleRate and
     (sampleRate >= minSampleRate) and (sampleRate <= maxSampleRate)) then
     handled = true
-    local complexToRealBlock = radio.ComplexToRealBlock()
-    local radioBlock = radio.SoapySDRSource("lime", tuningFreq, sampleRate, {bandwidth = 1.5e6, gain = 80})
-    local compositeBlock = radio.CompositeBlock()
-    compositeBlock:add_type_signature({}, {radio.block.Output("out", radio.types.Float32)})
-    compositeBlock:connect(radioBlock, complexToRealBlock)
-    compositeBlock:connect(compositeBlock, 'out', complexToRealBlock, 'out')
     comps[compName] = {
       isRadioSource = true,
       inputs = {},
       outputs = {["out"]=true},
-      block = compositeBlock}
+      block = radio.SoapySDRSource("lime",
+        tuningFreq, sampleRate, {bandwidth = 1.5e6, gain = 80})}
   end
   return handled
 end
