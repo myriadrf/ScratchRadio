@@ -8,7 +8,24 @@
 BUILD_DIR = MyriadRF-Build
 SCRATCH_EXT_DIR = /usr/lib/scratch2/scratch_extensions
 
-# List of pseudo-targets.
+# Make everything by default.
+all: LimeSuite LuaRadio ScratchRadio
+
+# Clean up the build directory.
+clean:
+	rm -rf $(BUILD_DIR)
+
+# Uninstall the ScratchRadio extension (leaves LuaRadio and LimeSuite intact).
+uninstall:
+	sudo rm -f $(SCRATCH_EXT_DIR)/luaRadioExtension.js
+	sudo rm -f $(SCRATCH_EXT_DIR)/luaRadioDriver.lua
+	sudo rm -f $(SCRATCH_EXT_DIR)/luaradio.html
+	# Make sure we only unpatch this file once!
+	if grep luaRadioExtension $(SCRATCH_EXT_DIR)/extensions.json > /dev/null; \
+		then sudo patch -R -b $(SCRATCH_EXT_DIR)/extensions.json patches/scratch_extensions.patch; \
+		fi
+
+# List of intermediate pseudo-targets.
 LuaRadio: /usr/local/bin/luaradio
 LimeSuite: /usr/local/bin/LimeUtil
 
@@ -76,7 +93,7 @@ $(BUILD_DIR)/luaradio/radio/blocks/signal/ookdemodulator.lua: \
 $(BUILD_DIR)/luaradio/radio/blocks/signal/bitratesampler.lua: \
 		luaradio/radio/blocks/signal/bitratesampler.lua
 	cp $< $@
-	
+
 # Get the latest code from the LuaRadio repo.
 $(BUILD_DIR)/luaradio: $(BUILD_DIR)
 	cd $(BUILD_DIR); \

@@ -30,6 +30,12 @@ Raspbian packages for LiquidDSP and fast FFT libraries:
 Finally, the latest files for Scratch2 integration can be installed as follows:
 
   > make ScratchRadio
+
+The default makefile target is 'all' which will run the builds for LimeSuite,
+LuaRadio and ScratchRadio in order. After running the build process, all the
+intermediate files can be removed by using the 'clean' target:
+
+  > make clean
   
 ## Running Scratch Radio
 
@@ -44,3 +50,12 @@ It should now be possible to access the radio functions from Scratch by running
 Scratch2 from the Raspbian programming menu and selecting the 'Add an Extension 
 option under 'More Blocks'.
 
+## Removing Scratch Radio
+
+The Scratch Radio extension can be removed by using the 'uninstall' makefile
+target as follows:
+
+  > make uninstall
+
+This will remove the extension files from the Scratch2 installation directory
+but leaves the LuaRadio and LimeSuite installations intact.
