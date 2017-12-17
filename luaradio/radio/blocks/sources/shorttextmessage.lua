@@ -9,7 +9,7 @@ local block = require('radio.core.block')
 local types = require('radio.types')
 
 local paddingLen = 256
-local txLatency = 10
+local txLatency = 2
 
 --- The libc functions used by this process.
 ffi.cdef[[

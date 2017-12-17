@@ -14,7 +14,7 @@
     var rxMsgBufSize = 255;
     var rxMsgBuffer = Buffer.alloc(rxMsgBufSize);
     var rxMsgOffset = 0;
-    var messageBitRate = 800;
+    var messageBitRate = 1600;
     var sampleRate = 499200;
 
     // Send a command via the command pipe. Implements lazy open of
@@ -36,7 +36,7 @@
     // Receive a message via the response message pipe.
     this._receiveMessage = function(callback) {
         if (rxMsgPipe == null) {
-            callback("Broken Rx Message Pipe");
+            callback("Radio Not Running");
         } else {
             fs.read(rxMsgPipe, rxMsgBuffer, rxMsgOffset, rxMsgBufSize-rxMsgOffset, null,
                 function(err, len, buf) {
