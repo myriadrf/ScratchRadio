@@ -5,8 +5,8 @@
 --   Start of frame : 0x7E 0x81 0xC3 0x3C
 --   Frame length   : Number of bytes in body (excludes length and CRC bytes)
 --   Payload        : Payload data (integer number of bytes, at least one)
---   CRC            : CRC over all payload bytes including the length byte
---                    (x16 + x14 + x12 + x11 + x8 + x5 + x4 + x2 + 1)
+--   Checksum       : Checksum over all payload bytes including the length byte
+--                    using the 16-bit modulo 255 Fletcher checksum.
 -- Deframer outputs are a sequence of bytes representing the deframed messages,
 -- where the first byte is the message length and subsequent bytes are the
 -- message contents.
@@ -42,16 +42,17 @@ function SimpleDeframerBlock:initialize()
     self.rxSync = 0
     self.rxMessage = types.Byte.vector()
     self.rxOffset = 0
-    self.crc = 0x0000
+    self.checksums = {0, 0}
 end
 
 function SimpleDeframerBlock:get_rate()
     return block.Block.get_rate(self) / 8
 end
 
-local function updateCrc (crc, byteData)
-    -- TODO: This!
-    return crc
+local function updateChecksum (checksums, byteData)
+    checksums[1] = checksums[1] + byteData
+    checksums[2] = checksums[2] + checksums[1]
+    return checksums
 end
 
 function SimpleDeframerBlock:process(x)
@@ -85,14 +86,14 @@ function SimpleDeframerBlock:process(x)
                 rxMessage:resize(1+rxByte)
                 rxMessage.data[0] = types.Byte(rxByte)
                 self.rxOffset = 1
-                self.crc = updateCrc(0xFFFF, rxByte)
+                self.checksums = updateChecksum({0, 0}, rxByte)
             end
 
         -- process payload body
         elseif (self.state == states.getPayload) then
             if (self.bitCount == 0) then
                 rxMessage.data[self.rxOffset] = types.Byte(rxByte)
-                self.crc = updateCrc(self.crc, rxByte)
+                self.checksums = updateChecksum(self.checksums, rxByte)
                 if (self.rxOffset == self.byteCount) then
                     self.state = states.getCrc1
                 else
@@ -100,21 +101,27 @@ function SimpleDeframerBlock:process(x)
                 end
             end
 
-        -- TODO: check CRC
+        -- verify checksum 1
         elseif (self.state == states.getCrc1) then
             if (self.bitCount == 0) then
-                self.state = states.getCrc2
+                if (rxByte == self.checksums[1] % 255) then
+                    self.state = states.getCrc2
+                else
+                    self.state = states.idle
+                end
             end
 
-        -- TODO: check CRC
+        -- verify checksum 2
         else
             if (self.bitCount == 0) then
                 self.state = states.idle
-                out = self.out:resize(offset + rxMessage.length)
-                for j = 0, rxMessage.length-1 do
-                    out.data[offset+j] = rxMessage.data[j]
+                if (rxByte == self.checksums[2] % 255) then
+                    out = self.out:resize(offset + rxMessage.length)
+                    for j = 0, rxMessage.length-1 do
+                        out.data[offset+j] = rxMessage.data[j]
+                    end
+                    offset = offset + rxMessage.length
                 end
-                offset = offset + rxMessage.length
             end
         end
     end

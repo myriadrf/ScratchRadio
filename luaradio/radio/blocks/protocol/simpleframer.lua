@@ -9,8 +9,8 @@
 --   Start of frame : 0x7E 0x81 0xC3 0x3C
 --   Frame length   : Number of bytes in body (excludes length and CRC bytes)
 --   Payload        : Payload data (integer number of bytes, at least one)
---   CRC            : CRC over all payload bytes including the length byte
---                    (x16 + x14 + x12 + x11 + x8 + x5 + x4 + x2 + 1)
+--   Checksum       : Checksum over all payload bytes including the length byte
+--                    using the 16-bit modulo 255 Fletcher checksum.
 -- Frame outputs are a sequence of bytes where 0x00 and 0x01 represent valid
 -- data bits and other values represent idle bits.
 --
@@ -37,7 +37,7 @@ function SimpleFramerBlock:initialize()
     self.out = types.Byte.vector()
     self.idle = true
     self.byteCount = 0
-    self.crc = 0x0000
+    self.checksums = {0, 0}
 end
 
 function SimpleFramerBlock:get_rate()
@@ -59,9 +59,10 @@ local function sendIdleByte (out, offset)
     end
 end
 
-local function updateCrc (crc, byteData)
-    -- TODO: This!
-    return crc
+local function updateChecksum (checksums, byteData)
+    checksums[1] = checksums[1] + byteData
+    checksums[2] = checksums[2] + checksums[1]
+    return checksums
 end
 
 function SimpleFramerBlock:process(x)
@@ -93,20 +94,20 @@ function SimpleFramerBlock:process(x)
                 offset = offset + 10
                 self.idle = false
                 self.byteCount = thisByte.value
-                self.crc = updateCrc(0xFFFF, thisByte.value)
+                self.checksums = updateChecksum({0, 0}, thisByte.value)
             end
 
         -- processes frame payload data until the end of frame
         else
             sendDataByte (out, offset+i, thisByte.value)
             self.byteCount = self.byteCount - 1
-            self.crc = updateCrc(self.crc, thisByte.value)
+            self.checksums = updateChecksum(self.checksums, thisByte.value)
 
             -- insert CRC at end of frame
             if self.byteCount == 0 then
                 out = self.out:resize(self.out.length+32)
-                sendDataByte(out, offset+i+1, bit.bnot(self.crc))
-                sendDataByte(out, offset+i+2, bit.bnot(bit.rshift(self.crc, 8)))
+                sendDataByte(out, offset+i+1, self.checksums[1] % 255)
+                sendDataByte(out, offset+i+2, self.checksums[2] % 255)
                 sendIdleByte(out, offset+i+3)
                 sendIdleByte(out, offset+i+4)
                 offset = offset + 4
