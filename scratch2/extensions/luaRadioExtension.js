@@ -16,6 +16,7 @@
     var rxMsgOffset = 0;
     var messageBitRate = 1600;
     var sampleRate = 499200;
+    var errorCallbacks = [];
 
     // Send a command via the command pipe. Implements lazy open of
     // command pipe file.
@@ -30,6 +31,14 @@
     this._sendMessage = function(message) {
         if (txMsgPipe != null) {
             fs.appendFileSync (txMsgPipe, message + "\n");
+        }
+    }
+
+    // Issues an error message to any error listeners.
+    this._errorMessage = function(message) {
+        while (errorCallbacks.length > 0) {
+            var callback = errorCallbacks.pop();
+            callback(message);
         }
     }
 
@@ -264,6 +273,11 @@
         this._receiveMessage(callback);
     }
 
+    // Receive an error message.
+    ext.receiveErrorMessage = function(callback) {
+        errorCallbacks.push(callback);
+    }
+
     // Block and block menu descriptions
     var descriptor = {
         blocks: [
@@ -291,6 +305,7 @@
             [' ', 'connect %s to %s', 'makeSimpleConnection', 'producer', 'consumer'],
             [' ', 'send message %s', 'sendSimpleMessage', 'Hello World'],
             ['R', 'receive message', 'receiveSimpleMessage'],
+            ['R', 'receive error', 'receiveErrorMessage'],
         ]
     };
 
