@@ -45,13 +45,14 @@
     // Receive a message via the response message pipe.
     this._receiveMessage = function(callback) {
         if (rxMsgPipe == null) {
-            callback("Radio Not Running");
+            this._errorMessage("Radio Not Running");
+            callback("");
         } else {
             fs.read(rxMsgPipe, rxMsgBuffer, rxMsgOffset, rxMsgBufSize-rxMsgOffset, null,
                 function(err, len, buf) {
                     if (err == null) {
                         if (len == 0) {
-                            this._receiveMessage(callback)
+                            this._receiveMessage(callback);
                         } else {
                             var rxMsgString;
                             rxMsgOffset += len;
@@ -77,15 +78,16 @@
                                 if (rxMsgOffset >= rxMsgBufSize) {
                                     rxMsgOffset -= 1;
                                 }
-                                this._receiveMessage(callback)
+                                this._receiveMessage(callback);
                             } else {
                                 callback(rxMsgString);
                             }
                         }
                     } else if (err.code == "EAGAIN") {
-                        this._receiveMessage(callback)
+                        this._receiveMessage(callback);
                     } else {
-                        callback("Rx Message Error : " + err.code)
+                        this._errorMessage("Rx Message Error : " + err.code);
+                        callback("");
                     }
                 }
             );
