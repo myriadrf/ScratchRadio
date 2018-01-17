@@ -17,6 +17,8 @@
     var messageBitRate = 1600;
     var sampleRate = 499200;
     var errorCallbacks = [];
+    var componentNameSet = new Set();
+    var componentNameHook = null;
 
     // Send a command via the command pipe. Implements lazy open of
     // command pipe file.
@@ -39,6 +41,62 @@
         while (errorCallbacks.length > 0) {
             var callback = errorCallbacks.pop();
             callback(message);
+        }
+    }
+
+    // Checks for duplicate component names.
+    this._checkComponentAbsent = function(componentName) {
+        if (componentNameSet.has(componentName)) {
+            this._errorMessage("Duplicate component name : " + componentName);
+            return false;
+        } else {
+            componentNameSet.add(componentName);
+            return true;
+        }
+    }
+
+    // Check for existing component names.
+    this._checkComponentPresent = function(componentName) {
+        if (!componentNameSet.has(componentName)) {
+            this._errorMessage("Component not found : " + componentName);
+            return false;
+        } else {
+            return true;
+        }
+    }
+
+    // Implicitly connects up a data source.
+    this._connectDataSource = function(componentName) {
+        if (componentNameHook != null) {
+            this._errorMessage("Source component should not have an input : " + componentName);
+            return false;
+        } else {
+            componentNameHook = componentName;
+            return true;
+        }
+    }
+
+    // Implicitly connects up a data sink.
+    this._connectDataSink = function(componentName) {
+        if (componentNameHook == null) {
+            this._errorMessage("Sink component must have an input : " + componentName);
+            return false;
+        } else {
+            this._sendCommand("CONNECT " + componentNameHook + " out " + componentName + " in");
+            componentNameHook = null;
+            return true;
+        }
+    }
+
+    // Implicitly connects up a data processing component.
+    this._connectDataProcessor = function(componentName) {
+        if (componentNameHook == null) {
+            this._errorMessage("Data processing component must have an input : " + componentName);
+            return false;
+        } else {
+            this._sendCommand("CONNECT " + componentNameHook + " out " + componentName + " in");
+            componentNameHook = componentName;
+            return true;
         }
     }
 
@@ -134,6 +192,8 @@
         }
         txMsgStart = false;
         rxMsgStart = false;
+        componentNameSet.clear();
+        componentNameHook = null;
         this._sendCommand("RESET");
     }
 
@@ -170,99 +230,148 @@
 
     // Block for creating a new SoapySDR radio source.
     ext.createRadioSource = function(name, frequency) {
-        var scaledFreq = frequency * 1e6;
-        this._sendCommand("CREATE RADIO-SOURCE " + name + " " + scaledFreq + " " + sampleRate);
+        if (this._checkComponentAbsent(name)) {
+            var scaledFreq = frequency * 1e6;
+            this._sendCommand("CREATE RADIO-SOURCE " + name + " " + scaledFreq + " " + sampleRate);
+            this._connectDataSource(name);
+        }
     };
 
     // Block for creating a new SoapySDR radio sink.
     ext.createRadioSink = function(name, frequency) {
-        var scaledFreq = frequency * 1e6;
-        this._sendCommand("CREATE RADIO-SINK " + name + " " + scaledFreq + " " + sampleRate);
+        if (this._checkComponentAbsent(name)) {
+            var scaledFreq = frequency * 1e6;
+            this._sendCommand("CREATE RADIO-SINK " + name + " " + scaledFreq + " " + sampleRate);
+            this._connectDataSink(name);
+        }
     };
 
     // Block for creating a new display plot sink.
     // TODO: Add configuration parameters.
     ext.createDisplaySink = function(name) {
-        this._sendCommand("CREATE DISPLAY-SINK " + name);
+        if (this._checkComponentAbsent(name)) {
+            this._sendCommand("CREATE DISPLAY-SINK " + name);
+            this._connectDataSink(name);
+        }
     }
 
     // Block for creating a transmit message source.
     ext.createMessageSource = function(name) {
-        txMsgStart = true;
-        this._sendCommand("CREATE MESSAGE-SOURCE " + name +
-            " " + txMsgPipeName + " " + (messageBitRate / 8));
+        if (this._checkComponentAbsent(name)) {
+            txMsgStart = true;
+            this._sendCommand("CREATE MESSAGE-SOURCE " + name +
+                " " + txMsgPipeName + " " + (messageBitRate / 8));
+            this._connectDataSource(name);
+        }
     }
 
     // Block for creating a receive message sink.
     ext.createMessageSink = function(name) {
-        rxMsgStart = true;
-        this._sendCommand("CREATE MESSAGE-SINK " + name + " " + rxMsgPipeName);
+        if (this._checkComponentAbsent(name)) {
+            rxMsgStart = true;
+            this._sendCommand("CREATE MESSAGE-SINK " + name + " " + rxMsgPipeName);
+            this._connectDataSink(name);
+        }
     }
 
     // Block for creating a simple transmit framer.
     ext.createSimpleFramer = function(name) {
-        this._sendCommand("CREATE SIMPLE-FRAMER " + name);
+        if (this._checkComponentAbsent(name)) {
+            this._sendCommand("CREATE SIMPLE-FRAMER " + name);
+            this._connectDataProcessor(name);
+        }
     }
 
     // Block for creating a simple receive deframer.
     ext.createSimpleDeframer = function(name) {
-        this._sendCommand("CREATE SIMPLE-DEFRAMER " + name);
+        if (this._checkComponentAbsent(name)) {
+            this._sendCommand("CREATE SIMPLE-DEFRAMER " + name);
+            this._connectDataProcessor(name);
+        }
     }
 
     // Block for creating a Manchester encoder.
     ext.createManchesterEncoder = function(name) {
-        this._sendCommand("CREATE MANCHESTER-ENCODER " + name);
+        if (this._checkComponentAbsent(name)) {
+            this._sendCommand("CREATE MANCHESTER-ENCODER " + name);
+            this._connectDataProcessor(name);
+        }
     }
 
     // Block for creating a simple receive deframer.
     ext.createManchesterDecoder = function(name) {
-        this._sendCommand("CREATE MANCHESTER-DECODER " + name);
+        if (this._checkComponentAbsent(name)) {
+            this._sendCommand("CREATE MANCHESTER-DECODER " + name);
+            this._connectDataProcessor(name);
+        }
     }
 
     // Block for creating an OOK modulator.
     ext.createOokModulator = function(name, intFreq) {
-        this._sendCommand("CREATE OOK-MODULATOR " + name + " " +
-            Math.round(sampleRate / (2 * messageBitRate)) + " " +
-            ((intFreq * 1000) / (2 * messageBitRate)));
+        if (this._checkComponentAbsent(name)) {
+            this._sendCommand("CREATE OOK-MODULATOR " + name + " " +
+                Math.round(sampleRate / (2 * messageBitRate)) + " " +
+                ((intFreq * 1000) / (2 * messageBitRate)));
+            this._connectDataProcessor(name);
+        }
     }
 
     // Block for creating an OOK demodulator.
     ext.createOokDemodulator = function(name) {
-        this._sendCommand("CREATE OOK-DEMODULATOR " + name + " " + (messageBitRate * 2));
+        if (this._checkComponentAbsent(name)) {
+            this._sendCommand("CREATE OOK-DEMODULATOR " + name + " " + (messageBitRate * 2));
+            this._connectDataProcessor(name);
+        }
     }
 
     // Block for creating a bit rate sampler.
     ext.createBitRateSampler = function(name) {
-        this._sendCommand("CREATE BIT-RATE-SAMPLER " + name + " " + (messageBitRate * 2));
+        if (this._checkComponentAbsent(name)) {
+            this._sendCommand("CREATE BIT-RATE-SAMPLER " + name + " " + (messageBitRate * 2));
+            this._connectDataProcessor(name);
+        }
     }
 
     // Block for creating the real valued file sink.
     ext.createRealFileSink = function(name, fileName) {
-        this._sendCommand("CREATE REAL-FILE-SINK " + name + " " + fileName);
+        if (this._checkComponentAbsent(name)) {
+            this._sendCommand("CREATE REAL-FILE-SINK " + name + " " + fileName);
+            this._connectDataSink(name);
+        }
     }
 
     // Block for creating the real valued file source.
     ext.createRealFileSource = function(name, fileName) {
-        this._sendCommand("CREATE REAL-FILE-SOURCE " + name + " " + fileName + " " + sampleRate);
+        if (this._checkComponentAbsent(name)) {
+            this._sendCommand("CREATE REAL-FILE-SOURCE " + name + " " + fileName + " " + sampleRate);
+            this._connectDataSource(name);
+        }
     }
 
     // Block for creating a new low pass filter.
     ext.createLowPassFilter = function(name, bandwidth) {
-        this._sendCommand("CREATE LOW-PASS-FILTER " + name + " " +
-            ((bandwidth * 2000) / sampleRate));
+        if (this._checkComponentAbsent(name)) {
+            this._sendCommand("CREATE LOW-PASS-FILTER " + name + " " +
+                ((bandwidth * 2000) / sampleRate));
+            this._connectDataProcessor(name);
+        }
     }
 
     // Block for creating a new band pass filter.
     ext.createBandPassFilter = function(name, lowCutoff, highCutoff) {
-        this._sendCommand("CREATE BAND-PASS-FILTER " + name + " " +
-            ((lowCutoff * 2000) / sampleRate) + " " +
-            ((highCutoff * 2000) / sampleRate));
+        if (this._checkComponentAbsent(name)) {
+            this._sendCommand("CREATE BAND-PASS-FILTER " + name + " " +
+                ((lowCutoff * 2000) / sampleRate) + " " +
+                ((highCutoff * 2000) / sampleRate));
+            this._connectDataProcessor(name);
+        }
     }
 
-    // Block for creating a simple connection between a producer with a
-    // single 'out' port and a consumer with a single 'in' port.
-    ext.makeSimpleConnection = function(producer, consumer) {
-        this._sendCommand("CONNECT " + producer + " out " + consumer + " in");
+    // Block for creating a simple connection from an existing data producer.
+    ext.makeSimpleConnection = function(producer) {
+        if (this._checkComponentPresent(producer)) {
+            this._connectDataSource(producer);
+        }
     }
 
     // Send a fixed message over the radio.
@@ -288,26 +397,26 @@
             [' ', 'start radio', 'radioStart'],
             [' ', 'stop radio', 'radioStop'],
             ['b', 'radio running', 'isRadioRunning'],
-            [' ', 'create radio source %s at %n MHz', 'createRadioSource', 'lime-source', 433],
-            [' ', 'create radio sink %s at %n MHz', 'createRadioSink', 'lime-sink', 433],
-            [' ', 'create display sink %s', 'createDisplaySink', 'spectrum'],
-            [' ', 'create message source %s', 'createMessageSource', 'tx-message'],
-            [' ', 'create message sink %s', 'createMessageSink', 'rx-message'],
-            [' ', 'create simple framer %s', 'createSimpleFramer', 'tx-framer'],
-            [' ', 'create simple deframer %s', 'createSimpleDeframer', 'rx-deframer'],
-            [' ', 'create Manchester encoder %s', 'createManchesterEncoder', 'mcr-encoder'],
-            [' ', 'create Manchester decoder %s', 'createManchesterDecoder', 'mcr-decoder'],
-            [' ', 'create OOK modulator %s at %n KHz', 'createOokModulator', 'ook-modulator', 25],
-            [' ', 'create OOK demodulator %s', 'createOokDemodulator', 'ook-demodulator'],
-            [' ', 'create bit rate sampler %s', 'createBitRateSampler', 'bit-sampler'],
-            [' ', 'create sink %s to file %s', 'createRealFileSink', 'sample-sink', 'file-name'],
-            [' ', 'create source %s from file %s', 'createRealFileSource', 'sample-source', 'file-name'],
-            [' ', 'create low pass filter %s with bandwidth %n KHz', 'createLowPassFilter', 'lp-filter', 100],
-            [' ', 'create band pass filter %s with pass band %n KHz to %n KHz', 'createBandPassFilter', 'bp-filter', 50, 100],
-            [' ', 'connect %s to %s', 'makeSimpleConnection', 'producer', 'consumer'],
             [' ', 'send message %s', 'sendSimpleMessage', 'Hello World'],
             ['R', 'receive message', 'receiveSimpleMessage'],
             ['R', 'receive error', 'receiveErrorMessage'],
+            [' ', '\u2533 radio source %s at %n MHz', 'createRadioSource', 'lime-source', 433],
+            [' ', '\u2533 message source %s', 'createMessageSource', 'tx-message'],
+            [' ', '\u2533 source %s from file %s', 'createRealFileSource', 'sample-source', 'file-name'],
+            [' ', '\u2513 source data from %s', 'makeSimpleConnection', 'producer'],
+            [' ', '\u253B radio sink %s at %n MHz', 'createRadioSink', 'lime-sink', 433],
+            [' ', '\u253B display sink %s', 'createDisplaySink', 'spectrum'],
+            [' ', '\u253B message sink %s', 'createMessageSink', 'rx-message'],
+            [' ', '\u253B sink %s to file %s', 'createRealFileSink', 'sample-sink', 'file-name'],
+            [' ', '\u2503 simple framer %s', 'createSimpleFramer', 'tx-framer'],
+            [' ', '\u2503 simple deframer %s', 'createSimpleDeframer', 'rx-deframer'],
+            [' ', '\u2503 Manchester encoder %s', 'createManchesterEncoder', 'mcr-encoder'],
+            [' ', '\u2503 Manchester decoder %s', 'createManchesterDecoder', 'mcr-decoder'],
+            [' ', '\u2503 OOK modulator %s at %n KHz', 'createOokModulator', 'ook-modulator', 50],
+            [' ', '\u2503 OOK demodulator %s', 'createOokDemodulator', 'ook-demodulator'],
+            [' ', '\u2503 bit rate sampler %s', 'createBitRateSampler', 'bit-sampler'],
+            [' ', '\u2503 low pass filter %s with bandwidth %n KHz', 'createLowPassFilter', 'lp-filter', 100],
+            [' ', '\u2503 band pass filter %s with pass band %n KHz to %n KHz', 'createBandPassFilter', 'bp-filter', 47, 53],
         ]
     };
 
