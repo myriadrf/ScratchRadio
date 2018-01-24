@@ -9,6 +9,7 @@ COMMAND_PIPE_DIR="/tmp/lrcontrol"
 COMMAND_PIPE_NAME=$COMMAND_PIPE_DIR/"command.pipe"
 TX_MSG_PIPE_NAME=$COMMAND_PIPE_DIR/"txmessage.pipe"
 RX_MSG_PIPE_NAME=$COMMAND_PIPE_DIR/"rxmessage.pipe"
+SCRIPT_LOCK_NAME=$COMMAND_PIPE_DIR/"script.lock"
 
 # Ensure the command pipe directory is present.
 mkdir -p $COMMAND_PIPE_DIR
@@ -32,5 +33,5 @@ then
     mkfifo $RX_MSG_PIPE_NAME
 fi
 
-# Runs the Lua Radio script.
-LUARADIO_DEBUG=1 luaradio $LUA_SCRIPT_NAME $COMMAND_PIPE_NAME
+# Runs the Lua Radio script. Uses flock to ensure only one instance is running.
+LUARADIO_DEBUG=1 flock -w 0.1 $SCRIPT_LOCK_NAME luaradio $LUA_SCRIPT_NAME $COMMAND_PIPE_NAME

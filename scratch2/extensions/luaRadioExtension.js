@@ -2,6 +2,7 @@
     var ext = this;
     var C = require('constants')
     var fs = require('fs');
+    var child_process = require('child_process');
     var commandPipeName = "/tmp/lrcontrol/command.pipe";
     var txMsgPipeName = "/tmp/lrcontrol/txmessage.pipe";
     var rxMsgPipeName = "/tmp/lrcontrol/rxmessage.pipe";
@@ -19,6 +20,10 @@
     var errorCallbacks = [];
     var componentNameSet = new Set();
     var componentNameHook = null;
+
+    // Fires up the Lua Radio script for subsequent use.
+    var radioDriver = child_process.spawn('lxterminal', ['-e',
+        '/usr/lib/scratch2/scratch_extensions/start_lua_radio.sh']);
 
     // Send a command via the command pipe. Implements lazy open of
     // command pipe file.
@@ -165,6 +170,10 @@
         if (rxMsgPipe != null) {
             fs.closeSync(rxMsgPipe);
             rxMsgPipe = null;
+        }
+        if (radioDriver != null) {
+            radioDriver.kill('SIGHUP');
+            radioDriver = null;
         }
     };
 

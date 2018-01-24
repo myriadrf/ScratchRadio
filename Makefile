@@ -20,6 +20,7 @@ uninstall:
 	sudo rm -f $(SCRATCH_EXT_DIR)/luaRadioExtension.js
 	sudo rm -f $(SCRATCH_EXT_DIR)/luaRadioDriver.lua
 	sudo rm -f $(SCRATCH_EXT_DIR)/luaradio.html
+	sudo rm -f $(SCRATCH_EXT_DIR)/start_lua_radio.sh
 	# Make sure we only unpatch this file once!
 	if grep luaRadioExtension $(SCRATCH_EXT_DIR)/extensions.json > /dev/null; \
 		then sudo patch -R -b $(SCRATCH_EXT_DIR)/extensions.json patches/scratch_extensions.patch; \
@@ -31,7 +32,8 @@ LimeSuite: /usr/local/bin/LimeUtil
 
 ScratchRadio: $(SCRATCH_EXT_DIR)/luaRadioExtension.js \
 		$(SCRATCH_EXT_DIR)/luaRadioDriver.lua \
-		$(SCRATCH_EXT_DIR)/luaradio.html
+		$(SCRATCH_EXT_DIR)/luaradio.html \
+		$(SCRATCH_EXT_DIR)/start_lua_radio.sh
 	# Make sure we only patch this file once!
 	if ! grep luaRadioExtension $(SCRATCH_EXT_DIR)/extensions.json > /dev/null; \
 		then sudo patch -b $(SCRATCH_EXT_DIR)/extensions.json patches/scratch_extensions.patch; \
@@ -43,6 +45,8 @@ $(SCRATCH_EXT_DIR)/luaRadioExtension.js : scratch2/extensions/luaRadioExtension.
 $(SCRATCH_EXT_DIR)/luaRadioDriver.lua : scratch2/extensions/luaRadioDriver.lua
 	sudo cp $< $@
 $(SCRATCH_EXT_DIR)/luaradio.html : scratch2/extensions/luaradio.html
+	sudo cp $< $@
+$(SCRATCH_EXT_DIR)/start_lua_radio.sh : scripts/start_lua_radio.sh
 	sudo cp $< $@
 
 # Install LuaRadio.
