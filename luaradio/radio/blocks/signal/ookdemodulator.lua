@@ -13,6 +13,7 @@
 -- @tparam[opt=false] bool saturate Saturates output to +-1
 --
 -- @signature in:ComplexFloat32 > out:Float32
+-- @signature in:Float32 > out:Float32
 --
 -- @usage
 -- local demodulator = radio.OokDemodulatorBlock(baudrate, saturate)
@@ -26,10 +27,13 @@ function OokDemodulatorBlock:instantiate(baudrate, saturate)
     self.baudrate = assert(baudrate, "Missing argument #1 (baudrate)")
     self.saturate = saturate
 
-    self:add_type_signature({block.Input("in", types.ComplexFloat32)}, {block.Output("out", types.Float32)})
+    self:add_type_signature({block.Input("in", types.ComplexFloat32)},
+        {block.Output("out", types.Float32)}, self.process_complex, self.initialize_complex)
+    self:add_type_signature({block.Input("in", types.Float32)},
+        {block.Output("out", types.Float32)}, self.process_real, self.initialize_real)
 end
 
-function OokDemodulatorBlock:initialize()
+function OokDemodulatorBlock:initialize_common()
     oversamplingFactor = self:get_rate() / self.baudrate
     print ("Demodulator oversampling factor " .. self:get_rate() .. "/" .. self.baudrate)
     if (oversamplingFactor < 4) then
@@ -61,7 +65,16 @@ function OokDemodulatorBlock:initialize()
     self.out = types.Float32.vector()
 end
 
-function OokDemodulatorBlock:process(x)
+function OokDemodulatorBlock:initialize_complex()
+    self:initialize_common()
+end
+
+function OokDemodulatorBlock:initialize_real()
+    self.complexIn = types.ComplexFloat32.vector()
+    self:initialize_common()
+end
+
+function OokDemodulatorBlock:process_common(x)
     local out = self.out:resize(x.length)
 
     for i = 0, x.length-1 do
@@ -104,6 +117,19 @@ function OokDemodulatorBlock:process(x)
     end
 
     return out
+end
+
+function OokDemodulatorBlock:process_complex(x)
+    return self:process_common(x)
+end
+
+function OokDemodulatorBlock:process_real(x)
+    local complexIn = self.complexIn:resize(x.length)
+    for i = 0, x.length-1 do
+        complexIn.data[i].real = x.data[i].value
+        complexIn.data[i].imag = 0
+    end
+    return self:process_common(complexIn)
 end
 
 return OokDemodulatorBlock
