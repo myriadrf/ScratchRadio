@@ -45,7 +45,7 @@ $(SCRATCH_EXT_DIR)/luaRadioExtension.js : scratch2/extensions/luaRadioExtension.
 $(SCRATCH_EXT_DIR)/luaRadioDriver.lua : scratch2/extensions/luaRadioDriver.lua
 	sudo cp $< $@
 $(SCRATCH_EXT_DIR)/luaradio.html : scratch2/extensions/luaradio.html
-	sudo cp $< $@
+	sudo chmod +x $<; sudo cp $< $@
 $(SCRATCH_EXT_DIR)/start_lua_radio.sh : scripts/start_lua_radio.sh
 	sudo cp $< $@
 
