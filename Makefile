@@ -45,9 +45,9 @@ $(SCRATCH_EXT_DIR)/luaRadioExtension.js : scratch2/extensions/luaRadioExtension.
 $(SCRATCH_EXT_DIR)/luaRadioDriver.lua : scratch2/extensions/luaRadioDriver.lua
 	sudo cp $< $@
 $(SCRATCH_EXT_DIR)/luaradio.html : scratch2/extensions/luaradio.html
-	sudo chmod +x $<; sudo cp $< $@
-$(SCRATCH_EXT_DIR)/start_lua_radio.sh : scripts/start_lua_radio.sh
 	sudo cp $< $@
+$(SCRATCH_EXT_DIR)/start_lua_radio.sh : scripts/start_lua_radio.sh
+	sudo chmod +x $<; sudo cp $< $@
 
 # Install LuaRadio.
 /usr/local/bin/luaradio: $(BUILD_DIR)/luaradio/embed/build/libluaradio.a
