@@ -4,6 +4,7 @@ from PyQt4 import QtCore, QtGui
 from gnuradio import gr
 from gnuradio import qtgui
 from gnuradio import fft
+from gnuradio import filter
 from threading import Thread
 from Queue import Queue
 
@@ -32,8 +33,12 @@ class FlowGraphBlock(object):
 #
 class RadioSourceBlock(FlowGraphBlock):
   sdrSource = None
-  def __init__(self, params):
+  def __init__(self):
     FlowGraphBlock.__init__(self)
+    if (RadioSourceBlock.sdrSource == None):
+      RadioSourceBlock.sdrSource = osmosdr.source(args="soapy=0,driver=lime")
+
+  def setup(self, params):
     if (len(params) != 2):
       print "GNURadio: Invalid number of radio source parameters"
       return None
@@ -44,14 +49,10 @@ class RadioSourceBlock(FlowGraphBlock):
       print "GNURadio: Invalid radio source parameter - %s" % msg
       return None
 
-    # Create the cached SDR source reference if required.
-    if (RadioSourceBlock.sdrSource == None):
-      RadioSourceBlock.sdrSource = osmosdr.source(args="soapy=0,driver=lime")
-    sdrSrc = RadioSourceBlock.sdrSource
-
     # Set the sample rate and tuning frequency, checking that these are in
     # range for the hardware.
     print "Found LimeSDR Source"
+    sdrSrc = RadioSourceBlock.sdrSource
     sdrSampleRate = sdrSrc.set_sample_rate(sampleRate)
     if (abs(sdrSampleRate-sampleRate) > abs(sampleRate*0.005)):
       print "GNURadio: Invalid radio source sample rate - %f" % sampleRate
@@ -62,27 +63,48 @@ class RadioSourceBlock(FlowGraphBlock):
       print "GNURadio: Invalid radio source tuning frequency - %f" % tuningFreq
       return None
     print "Configured Source Centre Frequency = %e" % sdrTuningFreq
+    return self
 
   def grBlock(self):
     return RadioSourceBlock.sdrSource
 
 #
-# Implements an frequency domain display sink block with complex data input.
+# Implements a frequency domain display sink block with complex data input.
 # This reconfigures an idle display if one is available, or creates a new
 # display on demand.
 #
-class DisplaySinkFreqC(FlowGraphBlock):
+class DisplaySinkFreqBlock(FlowGraphBlock):
   idleFreqSinkCs = []
-  def __init__(self, params):
+  def __init__(self):
     FlowGraphBlock.__init__(self)
-    if (len(DisplaySinkFreqC.idleFreqSinkCs) == 0):
-      self.plotSink = qtgui.freq_sink_c(1024, fft.window.WIN_BLACKMAN, 433e6, 4e6, "FFT Plot")
+
+  def setup(self, compName, params):
+    if (len(params) != 2):
+      print "GNURadio: Invalid number of frequency plot parameters"
+      return None
+    try:
+      tuningFreq = float(params[0])
+      sampleRate = float(params[1])
+    except ValueError, msg:
+      print "GNURadio: Invalid frequency plot parameter - %s" % msg
+      return None
+
+    # Create a new QT GUI component if required.
+    plotTitle = "FFT Plot For '%s' Block" % compName
+    if (len(DisplaySinkFreqBlock.idleFreqSinkCs) == 0):
+      self.plotSink = qtgui.freq_sink_c(
+        1024, fft.window.WIN_HANN, tuningFreq, sampleRate, plotTitle)
       self.pyobj = sip.wrapinstance(self.plotSink.pyqwidget(), QtGui.QWidget)
+
+    # Reuse an existing idle component.
     else:
-      idleFreqSinkC = DisplaySinkFreqC.idleFreqSinkCs.pop()
+      idleFreqSinkC = DisplaySinkFreqBlock.idleFreqSinkCs.pop()
       self.plotSink = idleFreqSinkC[0];
+      self.plotSink.set_frequency_range(tuningFreq, sampleRate)
+      self.plotSink.set_title(plotTitle)
       self.pyobj = idleFreqSinkC[1];
     self.pyobj.show()
+    return self
 
   def grBlock(self):
     return self.plotSink
@@ -90,7 +112,39 @@ class DisplaySinkFreqC(FlowGraphBlock):
   def cleanup(self):
     self.pyobj.hide()
     idleFreqSinkC = (self.plotSink, self.pyobj)
-    DisplaySinkFreqC.idleFreqSinkCs.append(idleFreqSinkC)
+    DisplaySinkFreqBlock.idleFreqSinkCs.append(idleFreqSinkC)
+
+#
+# Implements a low pass filter block with configurable cutoff frequency.
+#
+class LowPassFilterBlock(FlowGraphBlock):
+  def __init__(self):
+    FlowGraphBlock.__init__(self)
+
+  def setup(self, params):
+    if (len(params) != 2):
+      print "GNURadio: Invalid number of low pass filter parameters"
+      return None
+    try:
+      sampleRate = float(params[0])
+      cutoffFreq = float(params[1])
+    except ValueError, msg:
+      print "GNURadio: Invalid low pass filter parameter - %s" % msg
+      return None
+    if ((cutoffFreq <= 0) or (cutoffFreq >= sampleRate/2)):
+      print "GNURadio: Low pass cutoff frequency out of range"
+      return None
+
+    # Calculate the FIR filter taps using the Blackman-Harris window method.
+    transitionWidth = sampleRate/25
+    filterTaps = filter.firdes.low_pass(1.0, sampleRate,
+      cutoffFreq, transitionWidth, filter.firdes.WIN_BLACKMAN_HARRIS)
+    print "Generated FIR filter with %d taps" % len(filterTaps)
+    self.firFilter = filter.fir_filter_ccf(1, filterTaps)
+    return self
+
+  def grBlock(self):
+    return self.firFilter
 
 #
 # Implements the flow graph. On initialisation ensures that the graph is reset
@@ -104,16 +158,25 @@ class FlowGraph(gr.top_block):
     self.compCreateFns = {}
     self.compCreateFns["RADIO-SOURCE"] = self._createRadioSource
     self.compCreateFns["DISPLAY-SINK"] = self._createDisplaySink
+    self.compCreateFns["LOW-PASS-FILTER"] = self._createLowPassFilter
 
   # Add a new radio source data block to the hierarchy. This uses the Lime
   # Microsystems SoapySDR driver.
-  def _createRadioSource(self, params):
-    return RadioSourceBlock(params)
+  def _createRadioSource(self, compName, params):
+    radioSourceBlock = RadioSourceBlock()
+    return radioSourceBlock.setup(params)
 
   # Create a new display sink. This is currently limited to a simple FFT
   # display, but more advanced options can be included at a later date
-  def _createDisplaySink(self, params):
-    return DisplaySinkFreqC(params)
+  def _createDisplaySink(self, compName, params):
+    displaySinkBlock = DisplaySinkFreqBlock()
+    return displaySinkBlock.setup(compName, params)
+
+  # Create a new low pass filter. This is currently limited in terms of
+  # configuration options to specifying the 3dB cutoff point.
+  def _createLowPassFilter(self, compName, params):
+    filterBlock = LowPassFilterBlock()
+    return filterBlock.setup(params)
 
   # Resets the flow graph by disconnecting all the components and then removing
   # them from the component table. This uses the cleanup method to release any
@@ -146,7 +209,7 @@ class FlowGraph(gr.top_block):
     compCreateFn = self.compCreateFns[compType]
 
     # Run the component creation function.
-    newComp = compCreateFn(params)
+    newComp = compCreateFn(compName, params)
     if (newComp == None):
       return False
     else:
