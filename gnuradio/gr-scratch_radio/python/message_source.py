@@ -59,14 +59,6 @@ class message_source(gr.sync_block):
             name="message_source",
             in_sig=None,
             out_sig=[numpy.uint8])
-
-        # Creates the message pipe FIFO if not already present.
-        msgPipePath = os.path.dirname(msgFileName)
-        if not os.path.exists(msgPipePath):
-            os.makedirs(msgPipePath)
-        if not os.path.exists(msgFileName):
-            os.mkfifo(msgFileName)
-
         self.msgFileName = msgFileName
         self.msgQueue = Queue(8)
         self.msgReader = None

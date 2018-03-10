@@ -65,14 +65,6 @@ class message_sink(gr.sync_block):
             name="message_sink",
             in_sig=[numpy.uint8],
             out_sig=None)
-
-        # Creates the message pipe FIFO if not already present.
-        msgPipePath = os.path.dirname(msgFileName)
-        if not os.path.exists(msgPipePath):
-            os.makedirs(msgPipePath)
-        if not os.path.exists(msgFileName):
-            os.mkfifo(msgFileName)
-
         self.msgFileName = msgFileName
         self.msgQueue = Queue(32)
         self.msgWriter = None
