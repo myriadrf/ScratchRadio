@@ -60,7 +60,7 @@ class simple_deframer(gr.basic_block):
         out = output_items[0]
         inputIndex = 0
         outputIndex = 0
-        while (inputIndex < len(in0)) and (outputIndex < len(out)):
+        while (inputIndex <= (len(in0) - 8)) and (outputIndex < len(out)):
 
             # If a valid message has been received, copy it from the
             # local buffer to the output.
