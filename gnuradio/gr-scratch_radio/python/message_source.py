@@ -50,34 +50,46 @@ class message_reader(Thread):
     def halt(self):
         self.running = False
 
-class message_source(gr.sync_block):
+class message_source(gr.basic_block):
     """
     docstring for block message_source
     """
-    def __init__(self, msgFileName):
-        gr.sync_block.__init__(self,
+    def __init__(self, msgFileName, msgCpsRate):
+        gr.basic_block.__init__(self,
             name="message_source",
             in_sig=None,
             out_sig=[numpy.uint8])
         self.msgFileName = msgFileName
+        self.msgCpsRate = msgCpsRate
         self.msgQueue = Queue(8)
         self.msgReader = None
         self.msgOffset = 0
         self.msgBuffer = None
+        self.timestamp = 0
 
-    def work(self, input_items, output_items):
+    def forecast(self, noutput_items, ninput_items_required):
+        for i in range(len(ninput_items_required)):
+            ninput_items_required[i] = 0
+
+    def general_work(self, input_items, output_items):
         out = output_items[0]
         outputIndex = 0
         if len(out) == 0:
             return 0
         if self.msgBuffer == None:
-            if self.msgQueue.empty():
-                for i in range(len(out)):
+            if self.timestamp > time.time():
+                return 0
+            elif self.msgQueue.empty():
+                numIdleBytes = min(len(out), int(self.msgCpsRate))
+                # print "Source %d Idle Bytes" % numIdleBytes
+                for i in range(numIdleBytes):
                     out[i] = 0
-                return len(out)
+                self.timestamp += float(numIdleBytes) / self.msgCpsRate
+                return numIdleBytes
             else:
                 self.msgOffset = 0
                 self.msgBuffer = self.msgQueue.get()
+                # print "Source Message: ", self.msgBuffer
                 out[0] = len(self.msgBuffer)
                 outputIndex = 1
 
@@ -87,13 +99,16 @@ class message_source(gr.sync_block):
             self.msgOffset += 1
             if self.msgOffset == len(self.msgBuffer):
                 self.msgBuffer = None
+                self.timestamp += 14.0 / self.msgCpsRate
 
+        self.timestamp += float(outputIndex) / self.msgCpsRate
         return outputIndex
 
     def start(self):
         if self.msgReader == None:
             self.msgReader = message_reader(self.msgFileName, self.msgQueue)
             self.msgReader.start()
+            self.timestamp = time.time() - 5.0
             return True
         else:
             return False

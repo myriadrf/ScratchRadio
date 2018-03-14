@@ -52,7 +52,7 @@ class qa_message_source (gr_unittest.TestCase):
 
         # We may need to repeat the test if leading zeros have been
         # inserted due to the read thread being delayed in startup.
-        source = message_source(sourceFileName)
+        source = message_source(sourceFileName, 600)
         retry = True
         while retry:
             sink = blocks.vector_sink_b()
