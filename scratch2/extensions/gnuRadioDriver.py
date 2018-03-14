@@ -5,6 +5,7 @@ from gnuradio import gr
 from gnuradio import qtgui
 from gnuradio import fft
 from gnuradio import filter
+from gnuradio import blocks
 from threading import Thread
 from Queue import Queue
 
@@ -13,8 +14,9 @@ import sys
 import time
 import sip
 import osmosdr
+import scratch_radio
 
-COMMAND_PIPE_NAME='/tmp/gr-control/command.pipe'
+COMMAND_PIPE_NAME = '/tmp/gr-control/command.pipe'
 
 #
 # Specifies the base class for a managed flow graph block.
@@ -36,7 +38,15 @@ class RadioSourceBlock(FlowGraphBlock):
   def __init__(self):
     FlowGraphBlock.__init__(self)
     if (RadioSourceBlock.sdrSource == None):
-      RadioSourceBlock.sdrSource = osmosdr.source(args="soapy=0,driver=lime")
+      sdrSrc = osmosdr.source(args="soapy=0,driver=lime")
+      print "Found LimeSDR Source"
+      for sampleRange in sdrSrc.get_sample_rates():
+        print "  Sample range    : %d->%d" % \
+          (sampleRange.start(), sampleRange.stop())
+      for freqRange in sdrSrc.get_freq_range():
+        print "  Frequency range : %d->%d" % \
+          (freqRange.start(), freqRange.stop())
+      RadioSourceBlock.sdrSource = sdrSrc
 
   def setup(self, params):
     if (len(params) != 2):
@@ -51,22 +61,73 @@ class RadioSourceBlock(FlowGraphBlock):
 
     # Set the sample rate and tuning frequency, checking that these are in
     # range for the hardware.
-    print "Found LimeSDR Source"
     sdrSrc = RadioSourceBlock.sdrSource
     sdrSampleRate = sdrSrc.set_sample_rate(sampleRate)
     if (abs(sdrSampleRate-sampleRate) > abs(sampleRate*0.005)):
-      print "GNURadio: Invalid radio source sample rate - %f" % sampleRate
+      print "GNURadio: Invalid SDR source sample rate - %f (got %f)" % \
+        (sampleRate, sdrSampleRate)
       return None
     print "Configured Source Sample Rate = %e" % sdrSampleRate
     sdrTuningFreq = sdrSrc.set_center_freq(tuningFreq, 0)
     if (abs(sdrTuningFreq-tuningFreq) > abs(tuningFreq*0.005)):
-      print "GNURadio: Invalid radio source tuning frequency - %f" % tuningFreq
+      print "GNURadio: Invalid SDR source tuning frequency - %f (got %f)" % \
+        (tuningFreq, sdrTuningFreq)
       return None
     print "Configured Source Centre Frequency = %e" % sdrTuningFreq
     return self
 
   def grBlock(self):
     return RadioSourceBlock.sdrSource
+
+#
+# Implements a radio sink data block. This wraps the cached component
+# reference to ensure that it is only initialised once.
+#
+class RadioSinkBlock(FlowGraphBlock):
+  sdrSink = None
+  def __init__(self):
+    FlowGraphBlock.__init__(self)
+    if (RadioSinkBlock.sdrSink == None):
+      sdrSnk = osmosdr.sink(args="soapy=0,driver=lime")
+      print "Found LimeSDR Sink"
+      for sampleRange in sdrSnk.get_sample_rates():
+        print "  Sample range    : %d->%d" % \
+          (sampleRange.start(), sampleRange.stop())
+      for freqRange in sdrSnk.get_freq_range():
+        print "  Frequency range : %d->%d" % \
+          (freqRange.start(), freqRange.stop())
+      RadioSinkBlock.sdrSink = sdrSnk
+
+  def setup(self, params):
+    if (len(params) != 2):
+      print "GNURadio: Invalid number of radio sink parameters"
+      return None
+    try:
+      tuningFreq = float(params[0])
+      sampleRate = float(params[1])
+    except ValueError, msg:
+      print "GNURadio: Invalid radio sink parameter - %s" % msg
+      return None
+
+    # Set the sample rate and tuning frequency, checking that these are in
+    # range for the hardware.
+    sdrSnk = RadioSinkBlock.sdrSink
+    sdrSampleRate = sdrSnk.set_sample_rate(sampleRate)
+    if (abs(sdrSampleRate-sampleRate) > abs(sampleRate*0.005)):
+      print "GNURadio: Invalid SDR sink sample rate - %f (got %f)" % \
+        (sampleRate, sdrSampleRate)
+      return None
+    print "Configured Sink Sample Rate = %e" % sdrSampleRate
+    sdrTuningFreq = sdrSnk.set_center_freq(tuningFreq, 0)
+    if (abs(sdrTuningFreq-tuningFreq) > abs(tuningFreq*0.005)):
+      print "GNURadio: Invalid SDR sink tuning frequency - %f (got %f)" % \
+        (tuningFreq, sdrTuningFreq)
+      return None
+    print "Configured Sink Centre Frequency = %e" % sdrTuningFreq
+    return self
+
+  def grBlock(self):
+    return RadioSinkBlock.sdrSink
 
 #
 # Implements a frequency domain display sink block with complex data input.
@@ -122,12 +183,13 @@ class LowPassFilterBlock(FlowGraphBlock):
     FlowGraphBlock.__init__(self)
 
   def setup(self, params):
-    if (len(params) != 2):
+    if (len(params) != 3):
       print "GNURadio: Invalid number of low pass filter parameters"
       return None
     try:
       sampleRate = float(params[0])
       cutoffFreq = float(params[1])
+      gain = float(params[2])
     except ValueError, msg:
       print "GNURadio: Invalid low pass filter parameter - %s" % msg
       return None
@@ -137,7 +199,7 @@ class LowPassFilterBlock(FlowGraphBlock):
 
     # Calculate the FIR filter taps using the Blackman-Harris window method.
     transitionWidth = sampleRate/25
-    filterTaps = filter.firdes.low_pass(1.0, sampleRate,
+    filterTaps = filter.firdes.low_pass(gain, sampleRate,
       cutoffFreq, transitionWidth, filter.firdes.WIN_BLACKMAN_HARRIS)
     print "Generated FIR filter with %d taps" % len(filterTaps)
     self.firFilter = filter.fir_filter_ccf(1, filterTaps)
@@ -145,6 +207,296 @@ class LowPassFilterBlock(FlowGraphBlock):
 
   def grBlock(self):
     return self.firFilter
+
+#
+# Implements a decimation filter block with configurable decimation rate.
+#
+class DecimationFilterBlock(FlowGraphBlock):
+  def __init__(self):
+    FlowGraphBlock.__init__(self)
+
+  def setup(self, params):
+    if (len(params) != 2):
+      print "GNURadio: Invalid number of decimation filter parameters"
+      return None
+    try:
+      decimationFactor = int(params[0])
+      gain = float(params[1])
+    except ValueError, msg:
+      print "GNURadio: Invalid decimation filter parameter - %s" % msg
+      return None
+    if ((decimationFactor <= 0) or (decimationFactor > 20)):
+      print "GNURadio: Decimation factor out of range"
+      return None
+
+    # Calculate the FIR filter taps using the Blackman-Harris window method.
+    cutoffFreq = 0.375 / decimationFactor
+    transitionWidth = 0.125 / decimationFactor
+    filterTaps = filter.firdes.low_pass(gain, 1.0,
+      cutoffFreq, transitionWidth, filter.firdes.WIN_BLACKMAN_HARRIS)
+    print "Generated FIR filter with %d taps" % len(filterTaps)
+    self.firFilter = filter.fir_filter_ccf(decimationFactor, filterTaps)
+    return self
+
+  def grBlock(self):
+    return self.firFilter
+
+#
+# Implements an interpolation filter block with configurable interpolation
+# rate.
+#
+class InterpolationFilterBlock(FlowGraphBlock):
+  def __init__(self):
+    FlowGraphBlock.__init__(self)
+
+  def setup(self, params):
+    if (len(params) != 2):
+      print "GNURadio: Invalid number of interpolation filter parameters"
+      return None
+    try:
+      interpolationFactor = int(params[0])
+      gain = float(params[1])
+    except ValueError, msg:
+      print "GNURadio: Invalid interpolation filter parameter - %s" % msg
+      return None
+    if ((interpolationFactor <= 0) or (interpolationFactor > 20)):
+      print "GNURadio: Interpolation factor out of range"
+      return None
+
+    # Calculate the FIR filter taps using the Blackman-Harris window method.
+    cutoffFreq = 0.375 / interpolationFactor
+    transitionWidth = 0.125 / interpolationFactor
+    filterTaps = filter.firdes.low_pass(gain, 1.0,
+      cutoffFreq, transitionWidth, filter.firdes.WIN_BLACKMAN_HARRIS)
+    print "Generated FIR filter with %d taps" % len(filterTaps)
+    self.firFilter = filter.interp_fir_filter_ccf(interpolationFactor, filterTaps)
+    return self
+
+  def grBlock(self):
+    return self.firFilter
+
+#
+# Implements a ScratchRadio message source block.
+#
+class MessageSourceBlock(FlowGraphBlock):
+  def __init__(self):
+    FlowGraphBlock.__init__(self)
+
+  def setup(self, params):
+    if (len(params) != 2):
+      print "GNURadio: Invalid number of message source parameters"
+      return None
+
+    # Creates the message pipe FIFO if not already present.
+    try:
+      msgFileName = params[0]
+      msgPipePath = os.path.dirname(msgFileName)
+      if not os.path.exists(msgPipePath):
+        os.makedirs(msgPipePath)
+      if not os.path.exists(msgFileName):
+        os.mkfifo(msgFileName)
+    except Exception, msg:
+      print "GNURadio: Invalid message source file name - %s" % msg
+      return None
+    try:
+      msgCpsRate = float(params[1])
+    except Exception, msg:
+      print "GNURadio: Invalid message source CPS rate - %s" % msg
+      return None
+
+    self.msgSource = scratch_radio.message_source(msgFileName, msgCpsRate)
+    return self
+
+  def grBlock(self):
+    return self.msgSource
+
+#
+# Implements a ScratchRadio message sink block.
+#
+class MessageSinkBlock(FlowGraphBlock):
+  def __init__(self):
+    FlowGraphBlock.__init__(self)
+
+  def setup(self, params):
+    if (len(params) != 1):
+      print "GNURadio: Invalid number of message sink parameters"
+      return None
+
+    # Creates the message pipe FIFO if not already present.
+    try:
+      msgFileName = params[0]
+      msgPipePath = os.path.dirname(msgFileName)
+      if not os.path.exists(msgPipePath):
+        os.makedirs(msgPipePath)
+      if not os.path.exists(msgFileName):
+        os.mkfifo(msgFileName)
+    except Exception, msg:
+      print "GNURadio: Invalid message sink file name - %s" % msg
+      return None
+
+    self.msgSink = scratch_radio.message_sink(msgFileName)
+    return self
+
+  def grBlock(self):
+    return self.msgSink
+
+#
+# Implements a ScratchRadio simple framer block.
+#
+class SimpleFramerBlock(FlowGraphBlock):
+  def __init__(self):
+    FlowGraphBlock.__init__(self)
+    self.simpleFramer = scratch_radio.simple_framer()
+
+  def grBlock(self):
+    return self.simpleFramer
+
+#
+# Implements a ScratchRadio simple deframer block.
+#
+class SimpleDeframerBlock(FlowGraphBlock):
+  def __init__(self):
+    FlowGraphBlock.__init__(self)
+    self.simpleDeframer = scratch_radio.simple_deframer()
+
+  def grBlock(self):
+    return self.simpleDeframer
+
+#
+# Implements a Manchester encoder block.
+#
+class ManchesterEncoderBlock(FlowGraphBlock):
+  def __init__(self):
+    FlowGraphBlock.__init__(self)
+    self.encoder = scratch_radio.manc_enc(False)
+
+  def grBlock(self):
+    return self.encoder
+
+#
+# Implements a Manchester decoder block.
+#
+class ManchesterDecoderBlock(FlowGraphBlock):
+  def __init__(self):
+    FlowGraphBlock.__init__(self)
+    self.decoder = scratch_radio.manc_dec(False)
+
+  def grBlock(self):
+    return self.decoder
+
+#
+# Implements an OOK modulator block.
+#
+class OokModulatorBlock(FlowGraphBlock):
+  def __init__(self):
+    FlowGraphBlock.__init__(self)
+
+  def setup(self, params):
+    if (len(params) != 2):
+      print "GNURadio: Invalid number of OOK modulator parameters"
+      return None
+
+    # Specify the sample rate and baud rate.
+    try:
+      baudRate = float(params[0])
+      sampleRate = float(params[1])
+    except ValueError, msg:
+      print "GNURadio: Invalid OOK modulator parameter - %s" % msg
+      return None
+
+    # TODO: Should check valid range for baudRate and sampleRate.
+    self.modulator = scratch_radio.ook_modulator(baudRate, sampleRate)
+    return self
+
+  def grBlock(self):
+    return self.modulator
+
+#
+# Implements an OOK demodulator block.
+#
+class OokDemodulatorBlock(FlowGraphBlock):
+  def __init__(self):
+    FlowGraphBlock.__init__(self)
+
+  def setup(self, params):
+    if (len(params) != 2):
+      print "GNURadio: Invalid number of OOK demodulator parameters"
+      return None
+
+    # Specify the sample rate and baud rate.
+    try:
+      baudRate = float(params[0])
+      sampleRate = float(params[1])
+    except ValueError, msg:
+      print "GNURadio: Invalid OOK demodulator parameter - %s" % msg
+      return None
+
+    # TODO: Should check valid range for baudRate and sampleRate.
+    self.demodulator = scratch_radio.ook_demodulator(baudRate, sampleRate)
+    return self
+
+  def grBlock(self):
+    return self.demodulator
+
+#
+# Implements a symbol synchronisation block.
+#
+class SymbolSyncBlock(FlowGraphBlock):
+  def __init__(self):
+    FlowGraphBlock.__init__(self)
+
+  def setup(self, params):
+    if (len(params) != 2):
+      print "GNURadio: Invalid number of symbol sync parameters"
+      return None
+
+    # Specify the sample rate and baud rate.
+    try:
+      baudRate = float(params[0])
+      sampleRate = float(params[1])
+    except ValueError, msg:
+      print "GNURadio: Invalid symbol sync parameter - %s" % msg
+      return None
+
+    # TODO: Should check valid range for baudRate and sampleRate.
+    self.symbolSync = scratch_radio.symbol_sync(baudRate, sampleRate)
+    return self
+
+  def grBlock(self):
+    return self.symbolSync
+
+#
+# Implements a sample rate limiter block which should be used in loopback
+# type applications to limit the average sample rate.
+#
+class SampleRateLimiterBlock(FlowGraphBlock):
+  def __init__(self):
+    FlowGraphBlock.__init__(self)
+
+  def setup(self, params):
+    if (len(params) != 2):
+      print "GNURadio: Invalid number of sample rate limit parameters"
+      return None
+
+    # Specify the sample data type.
+    if params[0] == 'b':
+      sampleSize = 1
+    else:
+      print "GNURadio: Unsupported sample rate limit data type"
+      return None
+
+    # Specify the sample rate.
+    try:
+      sampleRate = float(params[1])
+    except ValueError, msg:
+      print "GNURadio: Invalid sample rate limit parameter - %s" % msg
+      return None
+
+    self.throttleBlock = blocks.throttle(sampleSize, sampleRate)
+    return self
+
+  def grBlock(self):
+    return self.throttleBlock
 
 #
 # Implements the flow graph. On initialisation ensures that the graph is reset
@@ -157,14 +509,33 @@ class FlowGraph(gr.top_block):
     self.comps = {}
     self.compCreateFns = {}
     self.compCreateFns["RADIO-SOURCE"] = self._createRadioSource
+    self.compCreateFns["RADIO-SINK"] = self._createRadioSink
     self.compCreateFns["DISPLAY-SINK"] = self._createDisplaySink
     self.compCreateFns["LOW-PASS-FILTER"] = self._createLowPassFilter
+    self.compCreateFns["DECIMATION-FILTER"] = self._createDecimationFilter
+    self.compCreateFns["INTERPOLATION-FILTER"] = self._createInterpolationFilter
+    self.compCreateFns["MESSAGE-SOURCE"] = self._createMessageSource
+    self.compCreateFns["MESSAGE-SINK"] = self._createMessageSink
+    self.compCreateFns["SIMPLE-FRAMER"] = self._createSimpleFramer
+    self.compCreateFns["SIMPLE-DEFRAMER"] = self._createSimpleDeframer
+    self.compCreateFns["MANCHESTER-ENCODER"] = self._createManchesterEncoder
+    self.compCreateFns["MANCHESTER-DECODER"] = self._createManchesterDecoder
+    self.compCreateFns["OOK-MODULATOR"] = self._createOokModulator
+    self.compCreateFns["OOK-DEMODULATOR"] = self._createOokDemodulator
+    self.compCreateFns["BIT-RATE-SAMPLER"] = self._createSymbolSync
+    self.compCreateFns["SAMPLE-RATE-LIMITER"] = self._createSampleRateLimiter
 
   # Add a new radio source data block to the hierarchy. This uses the Lime
   # Microsystems SoapySDR driver.
   def _createRadioSource(self, compName, params):
     radioSourceBlock = RadioSourceBlock()
     return radioSourceBlock.setup(params)
+
+  # Add a new radio sink data block to the hierarchy. This uses the Lime
+  # Microsystems SoapySDR driver.
+  def _createRadioSink(self, compName, params):
+    radioSinkBlock = RadioSinkBlock()
+    return radioSinkBlock.setup(params)
 
   # Create a new display sink. This is currently limited to a simple FFT
   # display, but more advanced options can be included at a later date
@@ -173,10 +544,71 @@ class FlowGraph(gr.top_block):
     return displaySinkBlock.setup(compName, params)
 
   # Create a new low pass filter. This is currently limited in terms of
-  # configuration options to specifying the 3dB cutoff point.
+  # configuration options to specifying the nominal sample rate, 3dB
+  # cutoff point and filter gain.
   def _createLowPassFilter(self, compName, params):
     filterBlock = LowPassFilterBlock()
     return filterBlock.setup(params)
+
+  # Create a new decimation filter. This is currently limited in terms
+  # configuration options to specifying the decimation factor and gain.
+  # The 3dB cutoff point is at 75% of the downsampled Nyquist rate.
+  def _createDecimationFilter(self, compName, params):
+    filterBlock = DecimationFilterBlock()
+    return filterBlock.setup(params)
+
+  # Create a new interpolation filter. This is currently limited in terms
+  # configuration options to specifying the interpolation factor and gain.
+  # The 3dB cutoff point is at 75% of the input Nyquist rate.
+  def _createInterpolationFilter(self, compName, params):
+    filterBlock = InterpolationFilterBlock()
+    return filterBlock.setup(params)
+
+  # Create a new message source block.
+  def _createMessageSource(self, compName, params):
+    messageSource = MessageSourceBlock()
+    return messageSource.setup(params)
+
+  # Create a new message sink block.
+  def _createMessageSink(self, compName, params):
+    messageSink = MessageSinkBlock()
+    return messageSink.setup(params)
+
+  # Create a new simple framer block.
+  def _createSimpleFramer(self, compName, params):
+    return SimpleFramerBlock()
+
+  # Create a new simple deframer block.
+  def _createSimpleDeframer(self, compName, params):
+    return SimpleDeframerBlock()
+
+  # Create a new Manchester encoder block.
+  def _createManchesterEncoder(self, compName, params):
+    return ManchesterEncoderBlock()
+
+  # Create a new Manchester decoder block.
+  def _createManchesterDecoder(self, compName, params):
+    return ManchesterDecoderBlock()
+
+  # Create a new OOK modulator block.
+  def _createOokModulator(self, compName, params):
+    modulator = OokModulatorBlock()
+    return modulator.setup(params)
+
+  # Create a new OOK demodulator block.
+  def _createOokDemodulator(self, compName, params):
+    demodulator = OokDemodulatorBlock()
+    return demodulator.setup(params)
+
+  # Create a new symbol timing recovery block.
+  def _createSymbolSync(self, compName, params):
+    symbolSync = SymbolSyncBlock()
+    return symbolSync.setup(params)
+
+  # Create a new sample rate limiting block.
+  def _createSampleRateLimiter(self, compName, params):
+    sampleRateLimiter = SampleRateLimiterBlock()
+    return sampleRateLimiter.setup(params)
 
   # Resets the flow graph by disconnecting all the components and then removing
   # them from the component table. This uses the cleanup method to release any
@@ -282,7 +714,6 @@ class CommandParser(QtCore.QObject):
   # Parses individual commands as they are removed from the command queue.
   def _parseCommand(self, command):
     handled = False
-    print "CMD : " + command
 
     # Force reset, which stops the radio and deletes all components.
     if (command == "RESET"):
@@ -361,7 +792,6 @@ class CommandReader(Thread):
       if (cmd == ''):
         time.sleep(0.5)
       else:
-        print "Read command : ", cmd
         self.cmdQueue.put(cmd)
         while (self.cmdQueue.full()):
           time.sleep(0.5)
