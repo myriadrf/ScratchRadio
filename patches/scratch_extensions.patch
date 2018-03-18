@@ -5,5 +5,5 @@
  { "name":"Pi GPIO", "type":"extension", "file":"piGPIOExtension.js", "md5":"pigpio.png", "url":"file:///usr/lib/scratch2/scratch_extensions/gpio.html", "tags":["hardware"]  },
 -{ "name":"Pi SenseHAT", "type":"extension", "file":"piSenseHATExtension.js", "md5":"pisensehat.png", "url":"file:///usr/lib/scratch2/scratch_extensions/sensehat.html", "tags":["hardware"]  }
 +{ "name":"Pi SenseHAT", "type":"extension", "file":"piSenseHATExtension.js", "md5":"pisensehat.png", "url":"file:///usr/lib/scratch2/scratch_extensions/sensehat.html", "tags":["hardware"]  },
-+{ "name":"Lua Radio Control", "type":"extension", "file":"luaRadioExtension.js", "md5":"luaradio.png", "url":"file:///usr/lib/scratch2/scratch_extensions/luaradio.html", "tags":["hardware"]  }
++{ "name":"Scratch Radio", "type":"extension", "file":"luaRadioExtension.js", "md5":"myriadrf.png", "url":"file:///usr/lib/scratch2/scratch_extensions/luaradio.html", "tags":["hardware"]  }
  ]

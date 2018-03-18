@@ -7,6 +7,7 @@
 #
 BUILD_DIR = MyriadRF-Build
 SCRATCH_EXT_DIR = /usr/lib/scratch2/scratch_extensions
+SCRATCH_IMG_DIR = /usr/lib/scratch2/medialibrarythumbnails
 
 # Make everything by default.
 all: LimeSuite LuaRadio ScratchRadio
@@ -21,6 +22,7 @@ uninstall:
 	sudo rm -f $(SCRATCH_EXT_DIR)/luaRadioDriver.lua
 	sudo rm -f $(SCRATCH_EXT_DIR)/luaradio.html
 	sudo rm -f $(SCRATCH_EXT_DIR)/start_lua_radio.sh
+	sudo rm -f $(SCRATCH_IMG_DIR)/myriadrf.png
 	# Make sure we only unpatch this file once!
 	if grep luaRadioExtension $(SCRATCH_EXT_DIR)/extensions.json > /dev/null; \
 		then sudo patch -R -b $(SCRATCH_EXT_DIR)/extensions.json patches/scratch_extensions.patch; \
@@ -33,7 +35,8 @@ LimeSuite: /usr/local/bin/LimeUtil
 ScratchRadio: $(SCRATCH_EXT_DIR)/luaRadioExtension.js \
 		$(SCRATCH_EXT_DIR)/luaRadioDriver.lua \
 		$(SCRATCH_EXT_DIR)/luaradio.html \
-		$(SCRATCH_EXT_DIR)/start_lua_radio.sh
+		$(SCRATCH_EXT_DIR)/start_lua_radio.sh \
+		$(SCRATCH_IMG_DIR)/myriadrf.png
 	# Make sure we only patch this file once!
 	if ! grep luaRadioExtension $(SCRATCH_EXT_DIR)/extensions.json > /dev/null; \
 		then sudo patch -b $(SCRATCH_EXT_DIR)/extensions.json patches/scratch_extensions.patch; \
@@ -48,6 +51,8 @@ $(SCRATCH_EXT_DIR)/luaradio.html : scratch2/extensions/luaradio.html
 	sudo cp $< $@
 $(SCRATCH_EXT_DIR)/start_lua_radio.sh : scripts/start_lua_radio.sh
 	sudo chmod +x $<; sudo cp $< $@
+$(SCRATCH_IMG_DIR)/myriadrf.png : images/myriadrf.png
+	sudo cp $< $@
 
 # Install LuaRadio.
 /usr/local/bin/luaradio: $(BUILD_DIR)/luaradio/embed/build/libluaradio.a
