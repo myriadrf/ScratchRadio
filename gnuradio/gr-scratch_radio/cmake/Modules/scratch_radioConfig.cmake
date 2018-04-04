@@ -1,0 +1,30 @@
+INCLUDE(FindPkgConfig)
+PKG_CHECK_MODULES(PC_SCRATCH_RADIO scratch_radio)
+
+FIND_PATH(
+    SCRATCH_RADIO_INCLUDE_DIRS
+    NAMES scratch_radio/api.h
+    HINTS $ENV{SCRATCH_RADIO_DIR}/include
+        ${PC_SCRATCH_RADIO_INCLUDEDIR}
+    PATHS ${CMAKE_INSTALL_PREFIX}/include
+          /usr/local/include
+          /usr/include
+)
+
+FIND_LIBRARY(
+    SCRATCH_RADIO_LIBRARIES
+    NAMES gnuradio-scratch_radio
+    HINTS $ENV{SCRATCH_RADIO_DIR}/lib
+        ${PC_SCRATCH_RADIO_LIBDIR}
+    PATHS ${CMAKE_INSTALL_PREFIX}/lib
+          ${CMAKE_INSTALL_PREFIX}/lib64
+          /usr/local/lib
+          /usr/local/lib64
+          /usr/lib
+          /usr/lib64
+)
+
+INCLUDE(FindPackageHandleStandardArgs)
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(SCRATCH_RADIO DEFAULT_MSG SCRATCH_RADIO_LIBRARIES SCRATCH_RADIO_INCLUDE_DIRS)
+MARK_AS_ADVANCED(SCRATCH_RADIO_LIBRARIES SCRATCH_RADIO_INCLUDE_DIRS)
+
