@@ -16,15 +16,15 @@ all: LimeSuite LuaRadio ScratchRadio
 clean:
 	rm -rf $(BUILD_DIR)
 
-# Uninstall the ScratchRadio extension (leaves LuaRadio and LimeSuite intact).
+# Uninstall the ScratchRadio extension (leaves GNU Radio and LimeSuite intact).
 uninstall:
-	sudo rm -f $(SCRATCH_EXT_DIR)/luaRadioExtension.js
-	sudo rm -f $(SCRATCH_EXT_DIR)/luaRadioDriver.lua
-	sudo rm -f $(SCRATCH_EXT_DIR)/luaradio.html
-	sudo rm -f $(SCRATCH_EXT_DIR)/start_lua_radio.sh
+	sudo rm -f $(SCRATCH_EXT_DIR)/gnuRadioExtension.js
+	sudo rm -f $(SCRATCH_EXT_DIR)/gnuRadioDriver.py
+	sudo rm -f $(SCRATCH_EXT_DIR)/gnuradio.html
+	sudo rm -f $(SCRATCH_EXT_DIR)/start_gnu_radio.sh
 	sudo rm -f $(SCRATCH_IMG_DIR)/myriadrf.png
 	# Make sure we only unpatch this file once!
-	if grep luaRadioExtension $(SCRATCH_EXT_DIR)/extensions.json > /dev/null; \
+	if grep gnuRadioExtension $(SCRATCH_EXT_DIR)/extensions.json > /dev/null; \
 		then sudo patch -R -b $(SCRATCH_EXT_DIR)/extensions.json patches/scratch_extensions.patch; \
 		fi
 
@@ -32,24 +32,24 @@ uninstall:
 LuaRadio: /usr/local/bin/luaradio
 LimeSuite: /usr/local/bin/LimeUtil
 
-ScratchRadio: $(SCRATCH_EXT_DIR)/luaRadioExtension.js \
-		$(SCRATCH_EXT_DIR)/luaRadioDriver.lua \
-		$(SCRATCH_EXT_DIR)/luaradio.html \
-		$(SCRATCH_EXT_DIR)/start_lua_radio.sh \
+ScratchRadio: $(SCRATCH_EXT_DIR)/gnuRadioExtension.js \
+		$(SCRATCH_EXT_DIR)/gnuRadioDriver.py \
+		$(SCRATCH_EXT_DIR)/gnuradio.html \
+		$(SCRATCH_EXT_DIR)/start_gnu_radio.sh \
 		$(SCRATCH_IMG_DIR)/myriadrf.png
 	# Make sure we only patch this file once!
-	if ! grep luaRadioExtension $(SCRATCH_EXT_DIR)/extensions.json > /dev/null; \
+	if ! grep gnuRadioExtension $(SCRATCH_EXT_DIR)/extensions.json > /dev/null; \
 		then sudo patch -b $(SCRATCH_EXT_DIR)/extensions.json patches/scratch_extensions.patch; \
 		fi
 
 # Copy over the Scratch Radio development files.
-$(SCRATCH_EXT_DIR)/luaRadioExtension.js : scratch2/extensions/luaRadioExtension.js
+$(SCRATCH_EXT_DIR)/gnuRadioExtension.js : scratch2/extensions/gnuRadioExtension.js
 	sudo cp $< $@
-$(SCRATCH_EXT_DIR)/luaRadioDriver.lua : scratch2/extensions/luaRadioDriver.lua
+$(SCRATCH_EXT_DIR)/gnuRadioDriver.py : scratch2/extensions/gnuRadioDriver.py
 	sudo cp $< $@
-$(SCRATCH_EXT_DIR)/luaradio.html : scratch2/extensions/luaradio.html
+$(SCRATCH_EXT_DIR)/gnuradio.html : scratch2/extensions/gnuradio.html
 	sudo cp $< $@
-$(SCRATCH_EXT_DIR)/start_lua_radio.sh : scripts/start_lua_radio.sh
+$(SCRATCH_EXT_DIR)/start_gnu_radio.sh : scripts/start_gnu_radio.sh
 	sudo chmod +x $<; sudo cp $< $@
 $(SCRATCH_IMG_DIR)/myriadrf.png : images/myriadrf.png
 	sudo cp $< $@
