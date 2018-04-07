@@ -22,6 +22,7 @@
 #include "config.h"
 #endif
 
+#include <ctime>
 #include <gnuradio/io_signature.h>
 #include <gnuradio/gr_complex.h>
 #include "ook_modulator_impl.h"
@@ -44,10 +45,13 @@ namespace gr {
               gr::io_signature::make(1, 1, sizeof(uint8_t)),
               gr::io_signature::make(1, 1, sizeof(gr_complex)))
     {
+      struct timespec ts_now;
       d_baud_rate = baud_rate;
       d_sample_rate = sample_rate;
       d_nco_count = sample_rate;
       d_current_sample = 0.0;
+      clock_gettime (CLOCK_MONOTONIC, &ts_now);
+      d_timestamp = (int64_t) ts_now.tv_sec * 1000000000 + ts_now.tv_nsec;
     }
 
     /*
@@ -74,6 +78,20 @@ namespace gr {
       int in_i = 0;
       int out_i = 0;
 
+      // Perform basic output rate limiting to prevent transmit buffer
+      // bloat. This approach should be replaced by proper output buffer
+      // latency management when possible. Stalls on idle cycles only.
+      if (in[0] == 0xFF) {
+        struct timespec ts_now;
+        int64_t now;
+        clock_gettime (CLOCK_MONOTONIC, &ts_now);
+        now = (int64_t) ts_now.tv_sec * 1000000000 + ts_now.tv_nsec;
+        if ((d_timestamp - now) > (OUTPUT_LATENCY * 1000000)) {
+          consume_each (1);
+          return 0;
+        }
+      }
+
       while ((in_i < ninput_items[0]) && (out_i < noutput_items)) {
         int next_nco_count = d_nco_count + d_baud_rate;
 
@@ -93,6 +111,9 @@ namespace gr {
         }
         d_nco_count = next_nco_count;
       }
+
+      // Update timestamp based on number of sampled generated.
+      d_timestamp += ((int64_t) out_i * 1000000000 / d_sample_rate);
 
       // Tell runtime system how many input items we consumed on
       // each input stream.
