@@ -29,6 +29,7 @@ uninstall:
 		fi
 
 # List of intermediate pseudo-targets.
+GnuRadio: /usr/local/lib/libgnuradio-osmosdr.so /usr/local/lib/libgnuradio-scratch_radio.so
 LuaRadio: /usr/local/bin/luaradio
 LimeSuite: /usr/local/bin/LimeUtil
 
@@ -53,6 +54,40 @@ $(SCRATCH_EXT_DIR)/start_gnu_radio.sh : scripts/start_gnu_radio.sh
 	sudo chmod +x $<; sudo cp $< $@
 $(SCRATCH_IMG_DIR)/myriadrf.png : images/myriadrf.png
 	sudo cp $< $@
+
+# Install GNU Radio OOT library module from local source.
+/usr/local/lib/libgnuradio-scratch_radio.so: $(BUILD_DIR)/gr-scratch_radio/builddir
+	cd $(BUILD_DIR)/gr-scratch_radio/builddir; \
+		sudo make install; \
+		sudo ldconfig
+
+# Build OOT library module from local source.
+$(BUILD_DIR)/gr-scratch_radio/builddir:
+	cd $(BUILD_DIR); \
+		mkdir -p gr-scratch_radio/builddir; \
+		cd gr-scratch_radio/builddir; \
+		cmake ../../../gnuradio/gr-scratch_radio; \
+		make
+
+# Install GNU Radio OsmoSDR library from latest source.
+/usr/local/lib/libgnuradio-osmosdr.so: $(BUILD_DIR)/gr-osmosdr/builddir
+	cd $(BUILD_DIR)/gr-osmosdr/builddir; \
+		sudo make install; \
+		sudo ldconfig
+
+# Build OsmoSDR with SoapySDR support.
+$(BUILD_DIR)/gr-osmosdr/builddir: $(BUILD_DIR)/gr-osmosdr /usr/local/bin/SoapySDRUtil
+	cd $(BUILD_DIR)/gr-osmosdr; \
+		mkdir builddir; \
+		cd builddir; \
+		cmake ..; \
+		make
+
+# Get the latest code from the OsmoSDR repo.
+$(BUILD_DIR)/gr-osmosdr: $(BUILD_DIR)
+	cd $(BUILD_DIR); \
+		rm -rf gr-osmosdr; \
+		git clone git://git.osmocom.org/gr-osmosdr
 
 # Install LuaRadio.
 /usr/local/bin/luaradio: $(BUILD_DIR)/luaradio/embed/build/libluaradio.a
