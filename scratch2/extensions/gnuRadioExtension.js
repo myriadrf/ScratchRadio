@@ -269,6 +269,7 @@
             txMsgStart = true;
             this._sendCommand("CREATE MESSAGE-SOURCE " + name +
                 " " + txMsgPipeName + " " + (messageBitRate / 8));
+            this._sendMessage("");
             this._connectDataSource(name);
         }
     }
