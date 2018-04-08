@@ -161,11 +161,10 @@ $(BUILD_DIR)/LimeSuite/builddir: $(BUILD_DIR)/LimeSuite /usr/local/bin/SoapySDRU
 		make
 
 # Get the latest code from the LimeSuite repo.
-$(BUILD_DIR)/LimeSuite: $(BUILD_DIR) patches/LimeSuite.patch
+$(BUILD_DIR)/LimeSuite: $(BUILD_DIR)
 	cd $(BUILD_DIR); \
 		rm -rf LimeSuite; \
 		git clone https://github.com/myriadrf/LimeSuite.git
-	patch -p1 --directory=$@ < patches/LimeSuite.patch
 
 # Install SoapySDR.
 /usr/local/bin/SoapySDRUtil: $(BUILD_DIR)/SoapySDR/build
