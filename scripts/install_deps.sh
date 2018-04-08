@@ -28,3 +28,6 @@ yes | apt-get install gnuplot libwxgtk3.0-dev freeglut3-dev
 
 # Install SDR specific libraries.
 yes | apt-get install libfftw3-dev libliquid-dev
+
+# Install GNU Radio and associated dependencies.
+yes | apt-get install gnuradio
