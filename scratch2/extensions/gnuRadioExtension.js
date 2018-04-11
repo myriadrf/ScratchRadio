@@ -256,9 +256,10 @@
 
     // Block for creating a new display plot sink.
     // TODO: Add configuration parameters.
-    ext.createDisplaySink = function(name) {
+    ext.createDisplaySink = function(name, frequency) {
         if (this._checkComponentAbsent(name)) {
-            this._sendCommand("CREATE DISPLAY-SINK " + name + " 0 1");
+            var scaledFreq = frequency * 1e6;
+            this._sendCommand("CREATE DISPLAY-SINK " + name + " " + scaledFreq + " " + sampleRate);
             this._connectDataSink(name);
         }
     }
@@ -269,8 +270,10 @@
             txMsgStart = true;
             this._sendCommand("CREATE MESSAGE-SOURCE " + name +
                 " " + txMsgPipeName + " " + (messageBitRate / 8));
-            this._sendMessage("");
             this._connectDataSource(name);
+            if (txMsgPipe == null) {
+                txMsgPipe = fs.openSync(txMsgPipeName, 'a');
+            }
         }
     }
 
@@ -280,6 +283,9 @@
             rxMsgStart = true;
             this._sendCommand("CREATE MESSAGE-SINK " + name + " " + rxMsgPipeName);
             this._connectDataSink(name);
+            if (rxMsgPipe == null) {
+                rxMsgPipe = fs.openSync(rxMsgPipeName, C.O_NONBLOCK);
+            }
         }
     }
 
@@ -398,7 +404,7 @@
             [' ', '\u2533 message source %s', 'createMessageSource', 'tx-message'],
             [' ', '\u2513 source data from %s', 'makeSimpleConnection', 'producer'],
             [' ', '\u253B radio sink %s at %n MHz', 'createRadioSink', 'lime-sink', 433.92],
-            [' ', '\u253B display sink %s', 'createDisplaySink', 'spectrum'],
+            [' ', '\u253B display sink %s at %n MHz', 'createDisplaySink', 'spectrum', 433.92],
             [' ', '\u253B message sink %s', 'createMessageSink', 'rx-message'],
             [' ', '\u2503 simple framer %s', 'createSimpleFramer', 'tx-framer'],
             [' ', '\u2503 simple deframer %s', 'createSimpleDeframer', 'rx-deframer'],
