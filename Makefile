@@ -150,7 +150,7 @@ $(BUILD_DIR)/luaradio: $(BUILD_DIR)
 		sudo make install; \
 		sudo ldconfig
 	cd $(BUILD_DIR)/LimeSuite/udev-rules; \
-		sudo ./install.sh
+		sudo sh ./install.sh
 
 # Build LimeSuite.
 $(BUILD_DIR)/LimeSuite/builddir: $(BUILD_DIR)/LimeSuite /usr/local/bin/SoapySDRUtil
