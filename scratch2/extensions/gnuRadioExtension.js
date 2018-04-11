@@ -394,10 +394,10 @@
             [' ', 'send message %s', 'sendSimpleMessage', 'Hello World'],
             ['R', 'receive message', 'receiveSimpleMessage'],
             ['R', 'receive error', 'receiveErrorMessage'],
-            [' ', '\u2533 radio source %s at %n MHz', 'createRadioSource', 'lime-source', 433],
+            [' ', '\u2533 radio source %s at %n MHz', 'createRadioSource', 'lime-source', 433.92],
             [' ', '\u2533 message source %s', 'createMessageSource', 'tx-message'],
             [' ', '\u2513 source data from %s', 'makeSimpleConnection', 'producer'],
-            [' ', '\u253B radio sink %s at %n MHz', 'createRadioSink', 'lime-sink', 433],
+            [' ', '\u253B radio sink %s at %n MHz', 'createRadioSink', 'lime-sink', 433.92],
             [' ', '\u253B display sink %s', 'createDisplaySink', 'spectrum'],
             [' ', '\u253B message sink %s', 'createMessageSink', 'rx-message'],
             [' ', '\u2503 simple framer %s', 'createSimpleFramer', 'tx-framer'],
@@ -407,7 +407,7 @@
             [' ', '\u2503 OOK modulator %s', 'createOokModulator', 'ook-modulator'],
             [' ', '\u2503 OOK demodulator %s', 'createOokDemodulator', 'ook-demodulator'],
             [' ', '\u2503 bit rate sampler %s', 'createBitRateSampler', 'bit-sampler'],
-            [' ', '\u2503 low pass filter %s with bandwidth %n KHz', 'createLowPassFilter', 'lp-filter', 100],
+            [' ', '\u2503 low pass filter %s with bandwidth %n KHz', 'createLowPassFilter', 'lp-filter', 25],
          // [' ', '\u2503 band pass filter %s with pass band %n KHz to %n KHz', 'createBandPassFilter', 'bp-filter', 47, 53],
         ]
     };
