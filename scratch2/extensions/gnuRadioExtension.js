@@ -23,8 +23,8 @@
 
     // Fires up the GNU Radio script for subsequent use.
     var radioDriver = null
-    // child_process.spawn('lxterminal', ['-e',
-    //    '/usr/lib/scratch2/scratch_extensions/start_gnu_radio.sh']);
+    child_process.spawn('lxterminal', ['-e',
+        '/usr/lib/scratch2/scratch_extensions/start_gnu_radio.sh']);
 
     // Send a command via the command pipe. Implements lazy open of
     // command pipe file.
