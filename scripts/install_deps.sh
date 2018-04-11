@@ -9,13 +9,10 @@ apt-get update
 apt-get upgrade
 
 # Install common build tools.
-yes | apt-get install git g++ make cmake
+yes | apt-get install git g++ make cmake pkg-config
 
 # Install common Python development packages.
 yes | apt-get install libpython-dev python-numpy swig
-
-# Install LuaJIT requireements.
-yes | apt-get install luajit libluajit-5.1-dev pkg-config
 
 # Install SQL development packages.
 yes | apt-get install libsqlite3-dev
