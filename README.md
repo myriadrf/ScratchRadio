@@ -2,52 +2,54 @@
 
 ![ScratchRadio](/images/ScratchRadio-detail.jpg)
 
-This repository contains entry level educational tools for introducing SDR 
-technology on the Raspberry Pi platform. A Raspberry Pi 3 Model B running 
+This repository contains entry level educational tools for introducing SDR
+technology on the Raspberry Pi platform. A Raspberry Pi 3 Model B running
 Raspbian Stretch is the recommended host configuration.
 
 ## Installation and Setup
 
-The following installation steps assume a new installation of Raspbian Stretch 
-is being used. All the required package dependencies for building the various 
-SDR components can be installed by running the 'install_deps.sh' script with 
+The following installation steps assume a new installation of Raspbian Stretch
+is being used. All the required package dependencies for building the various
+SDR components can be installed by running the 'install_deps.sh' script with
 superuser privileges:
 
   > sudo  ./scripts/install_deps.sh
 
-The Raspbian Stretch distribution already contains pre-built packages for 
-SoapySDR and LimeUtils, but these are out of date relative to the current 
-repositories and they need to be built and installed from source instead. The 
+The Raspbian Stretch distribution already contains pre-built packages for
+SoapySDR and LimeUtils, but these are out of date relative to the current
+repositories and they need to be built and installed from source instead. The
 'LimeSuite' makefile target automates this process:
 
   > make LimeSuite
 
-LuaRadio also needs to be installed in the same way. It uses the standard 
-Raspbian packages for LiquidDSP and fast FFT libraries:
+The main GNU Radio package from the Raspbian Stretch distribution is
+installed as one of the required dependencies. However, an up to date
+version of the GR-OsmoSDR package needs to be compiled against the latest
+SoapySDR release, together with the out of tree GNU Radio module from this
+repository which contains the dedicated Scratch Radio components:
 
-  > make LuaRadio
+  > make GnuRadio
 
 Finally, the latest files for Scratch2 integration can be installed as follows:
 
   > make ScratchRadio
 
 The default makefile target is 'all' which will run the builds for LimeSuite,
-LuaRadio and ScratchRadio in order. After running the build process, all the
-intermediate files can be removed by using the 'clean' target:
+GnuRadio and ScratchRadio in the required order. After running the build
+process, all the intermediate files can be removed by using the 'clean'
+target:
 
   > make clean
-  
+
 ## Running Scratch Radio
 
-In order to use the Scratch radio blocks, the corresponding LuaRadio wrapper 
-script needs to be running. Once the code is more mature this process will need 
-to be automated, but for now, the script can be started as a foreground task for 
-debugging purposes as follows:
+In order to use the Scratch radio blocks, the corresponding GNU Radio wrapper
+script needs to be running. This occurs automatically on loading the Scratch
+Radio extension. The wrapper script currently runs in a new terminal window
+which can be useful for development and debugging purposes.
 
-  > ./scripts/start_lua_radio.sh
-
-It should now be possible to access the radio functions from Scratch by running 
-Scratch2 from the Raspbian programming menu and selecting the 'Add an Extension 
+It should now be possible to access the radio functions from Scratch by running
+Scratch2 from the Raspbian programming menu and selecting the 'Add an Extension
 option under 'More Blocks'.
 
 ## Removing Scratch Radio
@@ -58,4 +60,4 @@ target as follows:
   > make uninstall
 
 This will remove the extension files from the Scratch2 installation directory
-but leaves the LuaRadio and LimeSuite installations intact.
+but leaves the GNU Radio and LimeSuite installations intact.
