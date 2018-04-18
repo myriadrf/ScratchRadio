@@ -11,6 +11,9 @@ apt-get upgrade
 # Install common build tools.
 yes | apt-get install git g++ make cmake pkg-config
 
+# Ensure that Scratch 2 is installed for non-standard images.
+yes | apt-get install scratch2
+
 # Install common Python development packages.
 yes | apt-get install libpython-dev python-numpy swig
 

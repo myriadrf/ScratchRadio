@@ -11,7 +11,8 @@ Raspbian Stretch is the recommended host configuration.
 The following installation steps assume a new installation of Raspbian Stretch
 is being used. All the required package dependencies for building the various
 SDR components can be installed by running the 'install_deps.sh' script with
-superuser privileges:
+superuser privileges. Note that it may be necessary to re-run this script if
+any of the package installation steps fail:
 
   > sudo  ./scripts/install_deps.sh
 
