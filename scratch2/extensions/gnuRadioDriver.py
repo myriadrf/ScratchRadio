@@ -170,7 +170,7 @@ class DisplaySinkFreqBlock(FlowGraphBlock):
       return None
 
     # Create a new QT GUI component if required.
-    plotTitle = "FFT Plot For '%s' Block" % compName
+    plotTitle = "Spectrum Plot For '%s' Block" % compName
     if (len(DisplaySinkFreqBlock.idleFreqSinkCs) == 0):
       self.plotSink = qtgui.freq_sink_c(
         1024, fft.window.WIN_HANN, tuningFreq, sampleRate, plotTitle)
@@ -193,6 +193,53 @@ class DisplaySinkFreqBlock(FlowGraphBlock):
     self.pyobj.hide()
     idleFreqSinkC = (self.plotSink, self.pyobj)
     DisplaySinkFreqBlock.idleFreqSinkCs.append(idleFreqSinkC)
+
+#
+# Implements a waterfall display sink block with complex data input.
+# This reconfigures an idle display if one is available, or creates a new
+# display on demand.
+#
+class DisplaySinkWaterfallBlock(FlowGraphBlock):
+  idleWaterfallSinkCs = []
+  def __init__(self):
+    FlowGraphBlock.__init__(self)
+
+  def setup(self, compName, params):
+    if (len(params) != 2):
+      print "GNURadio: Invalid number of waterfall plot parameters"
+      return None
+    try:
+      tuningFreq = float(params[0])
+      sampleRate = float(params[1])
+    except ValueError, msg:
+      print "GNURadio: Invalid waterfall plot parameter - %s" % msg
+      return None
+
+    # Create a new QT GUI component if required.
+    plotTitle = "Waterfall Plot For '%s' Block" % compName
+    if (len(DisplaySinkWaterfallBlock.idleWaterfallSinkCs) == 0):
+      self.plotSink = qtgui.waterfall_sink_c(
+        1024, fft.window.WIN_HANN, tuningFreq, sampleRate, plotTitle)
+      self.plotSink.set_update_time(0.25)
+      self.pyobj = sip.wrapinstance(self.plotSink.pyqwidget(), QtGui.QWidget)
+
+    # Reuse an existing idle component.
+    else:
+      idleWaterfallSinkC = DisplaySinkWaterfallBlock.idleWaterfallSinkCs.pop()
+      self.plotSink = idleWaterfallSinkC[0];
+      self.plotSink.set_frequency_range(tuningFreq, sampleRate)
+      self.plotSink.set_title(plotTitle)
+      self.pyobj = idleWaterfallSinkC[1];
+    self.pyobj.show()
+    return self
+
+  def grBlock(self):
+    return self.plotSink
+
+  def cleanup(self):
+    self.pyobj.hide()
+    idleWaterfallSinkC = (self.plotSink, self.pyobj)
+    DisplaySinkWaterfallBlock.idleWaterfallSinkCs.append(idleWaterfallSinkC)
 
 #
 # Implements a low pass filter block with configurable cutoff frequency.
@@ -557,9 +604,14 @@ class FlowGraph(gr.top_block):
     return radioSinkBlock.setup(params)
 
   # Create a new display sink. This is currently limited to a simple FFT
-  # display, but more advanced options can be included at a later date
+  # or waterfall displays, but more advanced options can be included at
+  # a later date
   def _createDisplaySink(self, compName, params):
-    displaySinkBlock = DisplaySinkFreqBlock()
+    displayType = params.pop(0)
+    if (displayType == "WATERFALL"):
+      displaySinkBlock = DisplaySinkWaterfallBlock()
+    else:
+      displaySinkBlock = DisplaySinkFreqBlock()
     return displaySinkBlock.setup(compName, params)
 
   # Create a new low pass filter. This is currently limited in terms of

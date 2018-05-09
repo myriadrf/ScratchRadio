@@ -256,10 +256,11 @@
 
     // Block for creating a new display plot sink.
     // TODO: Add configuration parameters.
-    ext.createDisplaySink = function(name, frequency) {
+    ext.createDisplaySink = function(type, name, frequency) {
         if (this._checkComponentAbsent(name)) {
             var scaledFreq = frequency * 1e6;
-            this._sendCommand("CREATE DISPLAY-SINK " + name + " " + scaledFreq + " " + sampleRate);
+            this._sendCommand("CREATE DISPLAY-SINK " + name + " " +
+                type.toUpperCase() + " " + scaledFreq + " " + sampleRate);
             this._connectDataSink(name);
         }
     }
@@ -404,7 +405,7 @@
             [' ', '\u2533 message source %s', 'createMessageSource', 'tx-message'],
             [' ', '\u2513 source data from %s', 'makeSimpleConnection', 'producer'],
             [' ', '\u253B radio sink %s at %n MHz', 'createRadioSink', 'lime-sink', 433.92],
-            [' ', '\u253B display sink %s at %n MHz', 'createDisplaySink', 'spectrum', 433.92],
+            [' ', '\u253B display %m.display_type sink %s at %n MHz', 'createDisplaySink', 'spectrum', 'spectrum', 433.92],
             [' ', '\u253B message sink %s', 'createMessageSink', 'rx-message'],
             [' ', '\u2503 simple framer %s', 'createSimpleFramer', 'tx-framer'],
             [' ', '\u2503 simple deframer %s', 'createSimpleDeframer', 'rx-deframer'],
@@ -415,7 +416,10 @@
             [' ', '\u2503 bit rate sampler %s', 'createBitRateSampler', 'bit-sampler'],
             [' ', '\u2503 low pass filter %s with bandwidth %n KHz', 'createLowPassFilter', 'lp-filter', 25],
          // [' ', '\u2503 band pass filter %s with pass band %n KHz to %n KHz', 'createBandPassFilter', 'bp-filter', 47, 53],
-        ]
+        ],
+        menus:{
+            display_type: ['spectrum', 'waterfall']
+        }
     };
 
     // Register the extension
