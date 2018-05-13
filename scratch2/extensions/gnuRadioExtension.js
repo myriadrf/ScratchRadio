@@ -362,8 +362,7 @@
     ext.createBandPassFilter = function(name, lowCutoff, highCutoff) {
         if (this._checkComponentAbsent(name)) {
             this._sendCommand("CREATE BAND-PASS-FILTER " + name + " " +
-                ((lowCutoff * 2000) / sampleRate) + " " +
-                ((highCutoff * 2000) / sampleRate));
+                sampleRate + " " + 1000 * lowCutoff + " " + 1000 * highCutoff + " 1");
             this._connectDataProcessor(name);
         }
     }
@@ -414,8 +413,8 @@
             [' ', '\u2503 OOK modulator %s at %n kHz', 'createOokModulator', 'ook-modulator', sampleRate/4000],
             [' ', '\u2503 OOK demodulator %s', 'createOokDemodulator', 'ook-demodulator'],
             [' ', '\u2503 bit rate sampler %s', 'createBitRateSampler', 'bit-sampler'],
-            [' ', '\u2503 low pass filter %s with bandwidth %n KHz', 'createLowPassFilter', 'lp-filter', 25],
-         // [' ', '\u2503 band pass filter %s with pass band %n KHz to %n KHz', 'createBandPassFilter', 'bp-filter', 47, 53],
+            [' ', '\u2503 low pass filter %s with bandwidth %n KHz', 'createLowPassFilter', 'lp-filter', sampleRate/4000],
+            [' ', '\u2503 band pass filter %s with pass band %n KHz to %n KHz', 'createBandPassFilter', 'bp-filter', sampleRate/8000, 3*sampleRate/8000],
         ],
         menus:{
             display_type: ['spectrum', 'waterfall']

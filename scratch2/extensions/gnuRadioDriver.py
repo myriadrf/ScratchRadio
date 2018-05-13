@@ -275,6 +275,43 @@ class LowPassFilterBlock(FlowGraphBlock):
     return self.firFilter
 
 #
+# Implements a band pass filter block with configurable cutoff frequencies.
+# This creates a single sided band pass filter with complex coefficients
+# suitable for use with single sided modulation schemes such as ASK and FSK.
+#
+class BandPassFilterBlock(FlowGraphBlock):
+  def __init__(self):
+    FlowGraphBlock.__init__(self)
+
+  def setup(self, params):
+    if (len(params) != 4):
+      print "GNURadio: Invalid number of band pass filter parameters"
+      return None
+    try:
+      sampleRate = float(params[0])
+      lowCutoffFreq = float(params[1])
+      highCutoffFreq = float(params[2])
+      gain = float(params[3])
+    except ValueError, msg:
+      print "GNURadio: Invalid band pass filter parameter - %s" % msg
+      return None
+    if ((lowCutoffFreq <= 0) or (highCutoffFreq >= sampleRate/2) or
+        (lowCutoffFreq >= highCutoffFreq)):
+      print "GNURadio: Band pass cutoff frequencies out of range"
+      return None
+
+    # Calculate the FIR filter taps using the Blackman-Harris window method.
+    transitionWidth = sampleRate/25
+    filterTaps = filter.firdes.complex_band_pass(gain, sampleRate, lowCutoffFreq,
+      highCutoffFreq, transitionWidth, filter.firdes.WIN_BLACKMAN_HARRIS)
+    print "Generated FIR filter with %d taps" % len(filterTaps)
+    self.firFilter = filter.fir_filter_ccc(1, filterTaps)
+    return self
+
+  def grBlock(self):
+    return self.firFilter
+
+#
 # Implements a decimation filter block with configurable decimation rate.
 #
 class DecimationFilterBlock(FlowGraphBlock):
@@ -579,6 +616,7 @@ class FlowGraph(gr.top_block):
     self.compCreateFns["RADIO-SINK"] = self._createRadioSink
     self.compCreateFns["DISPLAY-SINK"] = self._createDisplaySink
     self.compCreateFns["LOW-PASS-FILTER"] = self._createLowPassFilter
+    self.compCreateFns["BAND-PASS-FILTER"] = self._createBandPassFilter
     self.compCreateFns["DECIMATION-FILTER"] = self._createDecimationFilter
     self.compCreateFns["INTERPOLATION-FILTER"] = self._createInterpolationFilter
     self.compCreateFns["MESSAGE-SOURCE"] = self._createMessageSource
@@ -620,6 +658,13 @@ class FlowGraph(gr.top_block):
   # cutoff point and filter gain.
   def _createLowPassFilter(self, compName, params):
     filterBlock = LowPassFilterBlock()
+    return filterBlock.setup(params)
+
+  # Create a new band pass filter. This is currently limited in terms of
+  # configuration options to specifying the nominal sample rate, 3dB
+  # cutoff points and filter gain.
+  def _createBandPassFilter(self, compName, params):
+    filterBlock = BandPassFilterBlock()
     return filterBlock.setup(params)
 
   # Create a new decimation filter. This is currently limited in terms
