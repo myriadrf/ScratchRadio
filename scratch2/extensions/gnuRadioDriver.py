@@ -458,7 +458,7 @@ class OokModulatorBlock(FlowGraphBlock):
     FlowGraphBlock.__init__(self)
 
   def setup(self, params):
-    if (len(params) != 2):
+    if (len(params) != 3):
       print "GNURadio: Invalid number of OOK modulator parameters"
       return None
 
@@ -466,12 +466,13 @@ class OokModulatorBlock(FlowGraphBlock):
     try:
       baudRate = int(params[0])
       sampleRate = int(params[1])
+      modFreq = int(params[2])
     except ValueError, msg:
       print "GNURadio: Invalid OOK modulator parameter - %s" % msg
       return None
 
     # TODO: Should check valid range for baudRate and sampleRate.
-    self.modulator = scratch_radio.ook_modulator(baudRate, sampleRate)
+    self.modulator = scratch_radio.ook_modulator(baudRate, sampleRate, modFreq)
     return self
 
   def grBlock(self):

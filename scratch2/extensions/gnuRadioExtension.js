@@ -323,10 +323,10 @@
     }
 
     // Block for creating an OOK modulator.
-    ext.createOokModulator = function(name) {
+    ext.createOokModulator = function(name, modFreq) {
         if (this._checkComponentAbsent(name)) {
             this._sendCommand("CREATE OOK-MODULATOR " + name + " " +
-                2 * messageBitRate + " " + sampleRate);
+                2 * messageBitRate + " " + sampleRate + " " + Math.floor(modFreq*1000));
             this._connectDataProcessor(name);
         }
     }
@@ -411,7 +411,7 @@
             [' ', '\u2503 simple deframer %s', 'createSimpleDeframer', 'rx-deframer'],
             [' ', '\u2503 Manchester encoder %s', 'createManchesterEncoder', 'mcr-encoder'],
             [' ', '\u2503 Manchester decoder %s', 'createManchesterDecoder', 'mcr-decoder'],
-            [' ', '\u2503 OOK modulator %s', 'createOokModulator', 'ook-modulator'],
+            [' ', '\u2503 OOK modulator %s at %n kHz', 'createOokModulator', 'ook-modulator', sampleRate/4000],
             [' ', '\u2503 OOK demodulator %s', 'createOokDemodulator', 'ook-demodulator'],
             [' ', '\u2503 bit rate sampler %s', 'createBitRateSampler', 'bit-sampler'],
             [' ', '\u2503 low pass filter %s with bandwidth %n KHz', 'createLowPassFilter', 'lp-filter', 25],
