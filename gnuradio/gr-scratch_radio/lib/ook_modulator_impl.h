@@ -31,14 +31,15 @@ namespace gr {
     class ook_modulator_impl : public ook_modulator
     {
      private:
-      int d_baud_rate;
       int d_sample_rate;
-      int d_nco_count;
-      float d_current_sample;
+      int d_sample_count;
+      int d_current_symbol;
       int64_t d_timestamp;
+      int d_symbol_length;
+      gr_complex* d_sample_table;
 
      public:
-      ook_modulator_impl(int baud_rate, int sample_rate);
+      ook_modulator_impl(int baud_rate, int sample_rate, int mod_freq);
       ~ook_modulator_impl();
 
       // Where all the action really happens

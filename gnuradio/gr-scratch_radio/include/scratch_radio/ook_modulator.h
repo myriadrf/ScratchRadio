@@ -46,7 +46,7 @@ namespace gr {
        * class. scratch_radio::ook_modulator::make is the public interface for
        * creating new instances.
        */
-      static sptr make(int baud_rate, int sample_rate);
+      static sptr make(int baud_rate, int sample_rate, int mod_freq);
     };
 
   } // namespace scratch_radio
