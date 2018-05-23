@@ -64,19 +64,21 @@ class RadioSourceBlock(FlowGraphBlock):
       RadioSourceBlock.sdrSource = sdrSrc
       RadioSourceBlock.minBandwidth = minBandwidth
 
-  def setup(self, params):
-    if (len(params) != 2):
+  def setup(self, topBlock, params):
+    if (len(params) != 3):
       print "GNURadio: Invalid number of radio source parameters"
       return None
     try:
       tuningFreq = float(params[0])
-      sampleRate = float(params[1])
+      dspSampleRate = float(params[1])
+      decimationFactor = int(float(params[2]))
     except ValueError, msg:
       print "GNURadio: Invalid radio source parameter - %s" % msg
       return None
 
     # Set the sample rate and tuning frequency, checking that these are in
     # range for the hardware.
+    sampleRate = dspSampleRate * decimationFactor
     sdrSrc = RadioSourceBlock.sdrSource
     minBandwidth = RadioSourceBlock.minBandwidth
     sdrSampleRate = sdrSrc.set_sample_rate(sampleRate)
@@ -98,10 +100,21 @@ class RadioSourceBlock(FlowGraphBlock):
       bandwidth = minBandwidth
     sdrBandwidth = sdrSrc.set_bandwidth(bandwidth)
     print "  Configured Source Bandwidth = %d" % sdrBandwidth
+
+    # Implement the decimation filter to bring the input sample rate
+    # down to the required DSP processing rate. Calculate the FIR filter
+    # taps using the Blackman-Harris window method.
+    cutoffFreq = 0.375 / decimationFactor
+    transitionWidth = 0.25 / decimationFactor
+    filterTaps = filter.firdes.low_pass(1.0, 1.0,
+      cutoffFreq, transitionWidth, filter.firdes.WIN_BLACKMAN_HARRIS)
+    print "  Generated Source Decimation Filter (%d Taps)" % len(filterTaps)
+    self.firFilter = filter.fir_filter_ccf(decimationFactor, filterTaps)
+    topBlock.connect(sdrSrc, self.firFilter)
     return self
 
   def grBlock(self):
-    return RadioSourceBlock.sdrSource
+    return self.firFilter
 
 #
 # Implements a radio sink data block. This wraps the cached component
@@ -141,20 +154,22 @@ class RadioSinkBlock(FlowGraphBlock):
       RadioSinkBlock.sdrSink = sdrSnk
       RadioSinkBlock.minBandwidth = minBandwidth
 
-  def setup(self, params):
-    if (len(params) != 3):
+  def setup(self, topBlock, params):
+    if (len(params) != 4):
       print "GNURadio: Invalid number of radio sink parameters"
       return None
     try:
       tuningFreq = float(params[0])
-      sampleRate = float(params[1])
+      dspSampleRate = float(params[1])
       outputGain = float(params[2])
+      interpolationFactor = int(float(params[3]))
     except ValueError, msg:
       print "GNURadio: Invalid radio sink parameter - %s" % msg
       return None
 
     # Set the sample rate and tuning frequency, checking that these are in
     # range for the hardware.
+    sampleRate = dspSampleRate * interpolationFactor
     sdrSnk = RadioSinkBlock.sdrSink
     minBandwidth = RadioSinkBlock.minBandwidth
     sdrSampleRate = sdrSnk.set_sample_rate(sampleRate)
@@ -183,10 +198,21 @@ class RadioSinkBlock(FlowGraphBlock):
       bandwidth = minBandwidth
     sdrBandwidth = sdrSnk.set_bandwidth(bandwidth)
     print "  Configured Sink Bandwidth = %d" % sdrBandwidth
+
+    # Implement the interpolation filter to bring the DSP processing rate
+    # up to the required output sampling rate. Calculate the FIR filter
+    # taps using the Blackman-Harris window method.
+    cutoffFreq = 0.375 / interpolationFactor
+    transitionWidth = 0.25 / interpolationFactor
+    filterTaps = filter.firdes.low_pass(1.0, 1.0,
+      cutoffFreq, transitionWidth, filter.firdes.WIN_BLACKMAN_HARRIS)
+    print "  Generated Sink Interpolation Filter (%d Taps)" % len(filterTaps)
+    self.firFilter = filter.interp_fir_filter_ccf(interpolationFactor, filterTaps)
+    topBlock.connect(self.firFilter, sdrSnk)
     return self
 
   def grBlock(self):
-    return RadioSinkBlock.sdrSink
+    return self.firFilter
 
 #
 # Implements a frequency domain display sink block with complex data input.
@@ -259,7 +285,7 @@ class DisplaySinkWaterfallBlock(FlowGraphBlock):
     plotTitle = "Waterfall Plot For '%s' Block" % compName
     if (len(DisplaySinkWaterfallBlock.idleWaterfallSinkCs) == 0):
       self.plotSink = qtgui.waterfall_sink_c(
-        1024, fft.window.WIN_HANN, tuningFreq, sampleRate, plotTitle)
+        512, fft.window.WIN_HANN, tuningFreq, sampleRate, plotTitle)
       self.plotSink.set_update_time(1)
       self.pyobj = sip.wrapinstance(self.plotSink.pyqwidget(), QtGui.QWidget)
 
@@ -374,7 +400,7 @@ class DecimationFilterBlock(FlowGraphBlock):
 
     # Calculate the FIR filter taps using the Blackman-Harris window method.
     cutoffFreq = 0.375 / decimationFactor
-    transitionWidth = 0.125 / decimationFactor
+    transitionWidth = 0.25 / decimationFactor
     filterTaps = filter.firdes.low_pass(gain, 1.0,
       cutoffFreq, transitionWidth, filter.firdes.WIN_BLACKMAN_HARRIS)
     print "Generated FIR filter with %d taps" % len(filterTaps)
@@ -408,7 +434,7 @@ class InterpolationFilterBlock(FlowGraphBlock):
 
     # Calculate the FIR filter taps using the Blackman-Harris window method.
     cutoffFreq = 0.375 / interpolationFactor
-    transitionWidth = 0.125 / interpolationFactor
+    transitionWidth = 0.25 / interpolationFactor
     filterTaps = filter.firdes.low_pass(gain, 1.0,
       cutoffFreq, transitionWidth, filter.firdes.WIN_BLACKMAN_HARRIS)
     print "Generated FIR filter with %d taps" % len(filterTaps)
@@ -674,13 +700,13 @@ class FlowGraph(gr.top_block):
   # Microsystems SoapySDR driver.
   def _createRadioSource(self, compName, params):
     radioSourceBlock = RadioSourceBlock()
-    return radioSourceBlock.setup(params)
+    return radioSourceBlock.setup(self, params)
 
   # Add a new radio sink data block to the hierarchy. This uses the Lime
   # Microsystems SoapySDR driver.
   def _createRadioSink(self, compName, params):
     radioSinkBlock = RadioSinkBlock()
-    return radioSinkBlock.setup(params)
+    return radioSinkBlock.setup(self, params)
 
   # Create a new display sink. This is currently limited to a simple FFT
   # or waterfall displays, but more advanced options can be included at
