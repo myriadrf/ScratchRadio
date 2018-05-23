@@ -35,6 +35,7 @@ class FlowGraphBlock(object):
 #
 class RadioSourceBlock(FlowGraphBlock):
   sdrSource = None
+  minBandwidth = None
   def __init__(self):
     FlowGraphBlock.__init__(self)
     if (RadioSourceBlock.sdrSource == None):
@@ -47,6 +48,13 @@ class RadioSourceBlock(FlowGraphBlock):
       for freqRange in sdrSrc.get_freq_range():
         print "  Frequency range  : %d->%d" % \
           (freqRange.start(), freqRange.stop())
+      minBandwidth = 10e10
+      for bwRange in sdrSrc.get_bandwidth_range():
+        if (minBandwidth > bwRange.start()):
+          minBandwidth = bwRange.start()
+        print "  Bandwidth range  : %d->%d" % \
+          (bwRange.start(), bwRange.stop())
+      print "  Min bandwidth    : %d" % minBandwidth
       selectedAntenna = sdrSrc.get_antenna()
       for antennaName in sdrSrc.get_antennas():
         if (antennaName == selectedAntenna):
@@ -54,6 +62,7 @@ class RadioSourceBlock(FlowGraphBlock):
         else:
           print "  Antenna option   : %s" % antennaName
       RadioSourceBlock.sdrSource = sdrSrc
+      RadioSourceBlock.minBandwidth = minBandwidth
 
   def setup(self, params):
     if (len(params) != 2):
@@ -69,18 +78,26 @@ class RadioSourceBlock(FlowGraphBlock):
     # Set the sample rate and tuning frequency, checking that these are in
     # range for the hardware.
     sdrSrc = RadioSourceBlock.sdrSource
+    minBandwidth = RadioSourceBlock.minBandwidth
     sdrSampleRate = sdrSrc.set_sample_rate(sampleRate)
     if (abs(sdrSampleRate-sampleRate) > abs(sampleRate*0.005)):
       print "GNURadio: Invalid SDR source sample rate - %f (got %f)" % \
         (sampleRate, sdrSampleRate)
       return None
-    print "Configured Source Sample Rate = %e" % sdrSampleRate
+    print "  Configured Source Sample Rate = %e" % sdrSampleRate
+
     sdrTuningFreq = sdrSrc.set_center_freq(tuningFreq, 0)
     if (abs(sdrTuningFreq-tuningFreq) > abs(tuningFreq*0.005)):
       print "GNURadio: Invalid SDR source tuning frequency - %f (got %f)" % \
         (tuningFreq, sdrTuningFreq)
       return None
-    print "Configured Source Centre Frequency = %e" % sdrTuningFreq
+    print "  Configured Source Centre Frequency = %e" % sdrTuningFreq
+
+    bandwidth = sdrSampleRate * 0.8
+    if (bandwidth < minBandwidth):
+      bandwidth = minBandwidth
+    sdrBandwidth = sdrSrc.set_bandwidth(bandwidth)
+    print "  Configured Source Bandwidth = %d" % sdrBandwidth
     return self
 
   def grBlock(self):
@@ -92,12 +109,12 @@ class RadioSourceBlock(FlowGraphBlock):
 #
 class RadioSinkBlock(FlowGraphBlock):
   sdrSink = None
+  minBandwidth = None
   def __init__(self):
     FlowGraphBlock.__init__(self)
     if (RadioSinkBlock.sdrSink == None):
       sdrSnk = osmosdr.sink(args="soapy=0,driver=lime")
-      sdrSnk.set_antenna("BAND2")
-      sdrSnk.set_gain(18)
+      sdrSnk.set_antenna("BAND1")
       print "Found LimeSDR Sink"
       for sampleRange in sdrSnk.get_sample_rates():
         print "  Sample range     : %d->%d" % \
@@ -105,10 +122,16 @@ class RadioSinkBlock(FlowGraphBlock):
       for freqRange in sdrSnk.get_freq_range():
         print "  Frequency range  : %d->%d" % \
           (freqRange.start(), freqRange.stop())
+      minBandwidth = 10e10
+      for bwRange in sdrSnk.get_bandwidth_range():
+        if (minBandwidth > bwRange.start()):
+          minBandwidth = bwRange.start()
+        print "  Bandwidth range  : %d->%d" % \
+          (bwRange.start(), bwRange.stop())
+      print "  Min bandwidth    : %d" % minBandwidth
       for gainRange in sdrSnk.get_gain_range():
         print "  Gain range       : %d->%d" % \
           (gainRange.start(), gainRange.stop())
-      print "  Selected gain    : %d" % sdrSnk.get_gain()
       selectedAntenna = sdrSnk.get_antenna()
       for antennaName in sdrSnk.get_antennas():
         if (antennaName == selectedAntenna):
@@ -116,14 +139,16 @@ class RadioSinkBlock(FlowGraphBlock):
         else:
           print "  Antenna option   : %s" % antennaName
       RadioSinkBlock.sdrSink = sdrSnk
+      RadioSinkBlock.minBandwidth = minBandwidth
 
   def setup(self, params):
-    if (len(params) != 2):
+    if (len(params) != 3):
       print "GNURadio: Invalid number of radio sink parameters"
       return None
     try:
       tuningFreq = float(params[0])
       sampleRate = float(params[1])
+      outputGain = float(params[2])
     except ValueError, msg:
       print "GNURadio: Invalid radio sink parameter - %s" % msg
       return None
@@ -131,18 +156,33 @@ class RadioSinkBlock(FlowGraphBlock):
     # Set the sample rate and tuning frequency, checking that these are in
     # range for the hardware.
     sdrSnk = RadioSinkBlock.sdrSink
+    minBandwidth = RadioSinkBlock.minBandwidth
     sdrSampleRate = sdrSnk.set_sample_rate(sampleRate)
     if (abs(sdrSampleRate-sampleRate) > abs(sampleRate*0.005)):
       print "GNURadio: Invalid SDR sink sample rate - %f (got %f)" % \
         (sampleRate, sdrSampleRate)
       return None
-    print "Configured Sink Sample Rate = %e" % sdrSampleRate
+    print "  Configured Sink Sample Rate = %e" % sdrSampleRate
+
     sdrTuningFreq = sdrSnk.set_center_freq(tuningFreq, 0)
     if (abs(sdrTuningFreq-tuningFreq) > abs(tuningFreq*0.005)):
       print "GNURadio: Invalid SDR sink tuning frequency - %f (got %f)" % \
         (tuningFreq, sdrTuningFreq)
       return None
-    print "Configured Sink Centre Frequency = %e" % sdrTuningFreq
+    print "  Configured Sink Centre Frequency = %e" % sdrTuningFreq
+
+    sdrOutputGain = sdrSnk.set_gain(outputGain)
+    if (abs(sdrOutputGain-outputGain) > abs(outputGain*0.005)):
+      print "GNURadio: Invalid SDR sink gain level - %f (got %f)" % \
+        (tuningFreq, sdrTuningFreq)
+      return None
+    print "  Configured Sink Gain Level = %d" % sdrOutputGain
+
+    bandwidth = sdrSampleRate * 0.8
+    if (bandwidth < minBandwidth):
+      bandwidth = minBandwidth
+    sdrBandwidth = sdrSnk.set_bandwidth(bandwidth)
+    print "  Configured Sink Bandwidth = %d" % sdrBandwidth
     return self
 
   def grBlock(self):
@@ -220,7 +260,7 @@ class DisplaySinkWaterfallBlock(FlowGraphBlock):
     if (len(DisplaySinkWaterfallBlock.idleWaterfallSinkCs) == 0):
       self.plotSink = qtgui.waterfall_sink_c(
         1024, fft.window.WIN_HANN, tuningFreq, sampleRate, plotTitle)
-      self.plotSink.set_update_time(0.25)
+      self.plotSink.set_update_time(1)
       self.pyobj = sip.wrapinstance(self.plotSink.pyqwidget(), QtGui.QWidget)
 
     # Reuse an existing idle component.

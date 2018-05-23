@@ -16,7 +16,8 @@
     var rxMsgBuffer = Buffer.alloc(rxMsgBufSize);
     var rxMsgOffset = 0;
     var messageBitRate = 4800;
-    var sampleRate = 250000;
+    var sampleRate = 5600000;
+    var txGainLevel = 40;
     var errorCallbacks = [];
     var componentNameSet = new Set();
     var componentNameHook = null;
@@ -240,7 +241,8 @@
     ext.createRadioSource = function(name, frequency) {
         if (this._checkComponentAbsent(name)) {
             var scaledFreq = frequency * 1e6;
-            this._sendCommand("CREATE RADIO-SOURCE " + name + " " + scaledFreq + " " + sampleRate);
+            this._sendCommand("CREATE RADIO-SOURCE " + name + " " +
+                scaledFreq + " " + sampleRate);
             this._connectDataSource(name);
         }
     };
@@ -249,7 +251,8 @@
     ext.createRadioSink = function(name, frequency) {
         if (this._checkComponentAbsent(name)) {
             var scaledFreq = frequency * 1e6;
-            this._sendCommand("CREATE RADIO-SINK " + name + " " + scaledFreq + " " + sampleRate);
+            this._sendCommand("CREATE RADIO-SINK " + name + " " +
+                scaledFreq + " " + sampleRate + " " + txGainLevel);
             this._connectDataSink(name);
         }
     };
