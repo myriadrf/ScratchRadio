@@ -23,7 +23,7 @@ from gnuradio import gr, gr_unittest
 from gnuradio import blocks
 import scratch_radio_swig as scratch_radio
 
-class qa_cic_interpolator_cc (gr_unittest.TestCase):
+class qa_fast_agc_cc (gr_unittest.TestCase):
 
     def setUp (self):
         self.tb = gr.top_block ()
@@ -33,40 +33,33 @@ class qa_cic_interpolator_cc (gr_unittest.TestCase):
 
     def test_001_t (self):
         srcData = (
-            1, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            1, 0+1j, -1, 0-1j, 1, 1, -1, -1, 0+1j, 0+1j)
         refData = (
-            1.0/25, 3.0/25, 6.0/25, 10.0/25, 15.0/25, 18.0/25,
-            19.0/25, 18.0/25, 15.0/25, 10.0/25, 6.0/25, 3.0/25,
-            1.0/25, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            1, 0+1j, -1, 0-1j, 1, 1, -1, -1, 0+1j, 0+1j)
         source = blocks.vector_source_c(srcData)
-        interpolator = scratch_radio.cic_interpolator_cc(5, 3)
+        agc = scratch_radio.fast_agc_cc(0.5, 0.94754363, 1.0, 2.0)
         sink = blocks.vector_sink_c()
-        self.tb.connect(source, interpolator)
-        self.tb.connect(interpolator, sink)
+        self.tb.connect(source, agc)
+        self.tb.connect(agc, sink)
         self.tb.run()
         self.assertComplexTuplesAlmostEqual(refData, sink.data())
 
     def test_002_t (self):
         srcData = (
-            1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
-        refData = (
-            1.0/25, 3.0/25, 6.0/25, 10.0/25, 15.0/25,
-            19.0/25, 22.0/25, 24.0/25, 1, 1,
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-            1, 1, 1, 1, 1, 24.0/25, 22.0/25, 19.0/25,
-            15.0/25, 10.0/25, 6.0/25, 3.0/25, 1.0/25,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0)
+            1.0, 0+1j, -1.0, 0-1j, 1.0, 1.0, -1.0, -1.0, 0+1j, 0+1j)
+        refData = []
+        gain = 0.125
+        for srcDatapoint in srcData:
+            refData.append(srcDatapoint * gain)
+            gain += 0.5 * (1 - 0.947543636291 * gain)
+        refData = tuple(refData)
         source = blocks.vector_source_c(srcData)
-        interpolator = scratch_radio.cic_interpolator_cc(5, 3)
+        agc = scratch_radio.fast_agc_cc(0.5, 1, 0.125, 2.0)
         sink = blocks.vector_sink_c()
-        self.tb.connect(source, interpolator)
-        self.tb.connect(interpolator, sink)
+        self.tb.connect(source, agc)
+        self.tb.connect(agc, sink)
         self.tb.run()
         self.assertComplexTuplesAlmostEqual(refData, sink.data())
 
 if __name__ == '__main__':
-    gr_unittest.run(qa_cic_interpolator_cc, "qa_cic_interpolator_cc.xml")
+    gr_unittest.run(qa_fast_agc_cc, "qa_fast_agc_cc.xml")
