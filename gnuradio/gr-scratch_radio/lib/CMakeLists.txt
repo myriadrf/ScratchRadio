@@ -35,6 +35,8 @@ list(APPEND scratch_radio_sources
     ook_modulator_impl.cc
     ook_demodulator_impl.cc
     symbol_sync_impl.cc
+    cic_decimator_cc_impl.cc
+    cic_interpolator_cc_impl.cc
 )
 
 set(scratch_radio_sources "${scratch_radio_sources}" PARENT_SCOPE)

@@ -30,5 +30,7 @@ install(FILES
     message_sink.h
     ook_modulator.h
     ook_demodulator.h
-    symbol_sync.h DESTINATION include/scratch_radio
+    symbol_sync.h
+    cic_decimator_cc.h
+    cic_interpolator_cc.h DESTINATION include/scratch_radio
 )

@@ -50,3 +50,5 @@ GR_ADD_TEST(qa_message_sink ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_
 GR_ADD_TEST(qa_ook_modulator ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_ook_modulator.py)
 GR_ADD_TEST(qa_ook_demodulator ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_ook_demodulator.py)
 GR_ADD_TEST(qa_symbol_sync ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_symbol_sync.py)
+GR_ADD_TEST(qa_cic_decimator_cc ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_cic_decimator_cc.py)
+GR_ADD_TEST(qa_cic_interpolator_cc ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_cic_interpolator_cc.py)
