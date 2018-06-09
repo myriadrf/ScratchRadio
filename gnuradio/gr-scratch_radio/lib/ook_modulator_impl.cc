@@ -59,7 +59,7 @@ namespace gr {
       double mod_factor = double (mod_freq) * 2 * 3.141592653589793 / double (sample_rate);
       for (int i = 0; i < d_symbol_length; i++) {
         double theta = i * mod_factor;
-        d_sample_table[i] = gr_complex (float (sin (theta)), - float (cos (theta)));
+        d_sample_table[i] = gr_complex (float (sin (theta)) / 2, - float (cos (theta)) / 2);
       }
     }
 
