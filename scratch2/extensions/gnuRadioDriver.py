@@ -13,10 +13,14 @@ import os
 import sys
 import time
 import sip
-import osmosdr
+import limesdr
 import scratch_radio
 
 COMMAND_PIPE_NAME = '/tmp/gr-control/command.pipe'
+
+SDR_DEFAULT_FREQ = 433.92e6
+SDR_SAMPLE_RATE  = 400e3
+SDR_BANDWIDTH    = 200e4
 
 #
 # Specifies the base class for a managed flow graph block.
@@ -30,189 +34,98 @@ class FlowGraphBlock(object):
     pass
 
 #
-# Implements a radio source data block. This wraps the cached component
-# reference to ensure that it is only initialised once.
+# Implements a radio source data block using the gr-limesdr block which
+# supports native decimation and digital filtering. This wraps the
+# cached component reference to ensure that it is only initialised once.
 #
 class RadioSourceBlock(FlowGraphBlock):
   sdrSource = None
-  minBandwidth = None
   def __init__(self):
     FlowGraphBlock.__init__(self)
     if (RadioSourceBlock.sdrSource == None):
-      sdrSrc = osmosdr.source(args="soapy=0,driver=lime")
-      sdrSrc.set_antenna("LNAW")
-      print "Found LimeSDR Source"
-      for sampleRange in sdrSrc.get_sample_rates():
-        print "  Sample range     : %d->%d" % \
-          (sampleRange.start(), sampleRange.stop())
-      for freqRange in sdrSrc.get_freq_range():
-        print "  Frequency range  : %d->%d" % \
-          (freqRange.start(), freqRange.stop())
-      minBandwidth = 10e10
-      for bwRange in sdrSrc.get_bandwidth_range():
-        if (minBandwidth > bwRange.start()):
-          minBandwidth = bwRange.start()
-        print "  Bandwidth range  : %d->%d" % \
-          (bwRange.start(), bwRange.stop())
-      print "  Min bandwidth    : %d" % minBandwidth
-      selectedAntenna = sdrSrc.get_antenna()
-      for antennaName in sdrSrc.get_antennas():
-        if (antennaName == selectedAntenna):
-          print "  Antenna option * : %s" % antennaName
-        else:
-          print "  Antenna option   : %s" % antennaName
+      sdrSrc = limesdr.source(
+        0,                  # device_number
+        1,                  # device_type = LimeSDR-Mini
+        1,                  # chip_mode = SISO
+        0,                  # channel = A (in SISO mode)
+        0,                  # file_switch = NO (don't load parameters from file)
+        "",                 # filename = unused for no parameter file
+        SDR_DEFAULT_FREQ,   # rf_freq (default to 433MHz ISM band)
+        SDR_SAMPLE_RATE,    # samp_rate (default set to nominal 400 kHz)
+        0,                  # oversample (decimate by x16)
+        1,                  # calibration_ch0 enabled
+        2.5e6,              # calibr_bandw_ch0 (default set to minimum 2.5 MHz)
+        0,                  # calibration_ch1 disabled
+        0,                  # calibr_bandw_ch1 unused
+        3,                  # lna_path_mini = LNAW
+        0,                  # lna_path_ch0 unused for LimeSDR-Mini
+        0,                  # lna_path_ch1 unused for LimeSDR-Mini
+        1,                  # analog_filter_ch0 enabled
+        1.5e6,              # analog_bandw_ch0 (default set to minimum 1.5 MHz)
+        0,                  # analog_filter_ch1 disabled
+        1.5e6,              # analog_bandw_ch1 unused
+        1,                  # digital_filter_ch0 enabled
+        SDR_BANDWIDTH,      # digital_bandw_ch0 (default to nominal 200 kHz)
+        0,                  # digital_filter_ch1 disabled
+        SDR_BANDWIDTH,      # digital_bandw_ch1 unused
+        40,                 # gain_dB_ch0 (default set to nominal 40dB)
+        0                   # gain_dB_ch1 unused
+      )
       RadioSourceBlock.sdrSource = sdrSrc
-      RadioSourceBlock.minBandwidth = minBandwidth
 
   def setup(self, topBlock, params):
-    if (len(params) != 3):
-      print "GNURadio: Invalid number of radio source parameters"
-      return None
-    try:
-      tuningFreq = float(params[0])
-      dspSampleRate = float(params[1])
-      decimationFactor = int(float(params[2]))
-    except ValueError, msg:
-      print "GNURadio: Invalid radio source parameter - %s" % msg
-      return None
-
-    # Set the sample rate and tuning frequency, checking that these are in
-    # range for the hardware.
-    sampleRate = dspSampleRate * decimationFactor
-    sdrSrc = RadioSourceBlock.sdrSource
-    minBandwidth = RadioSourceBlock.minBandwidth
-    sdrSampleRate = sdrSrc.set_sample_rate(sampleRate)
-    if (abs(sdrSampleRate-sampleRate) > abs(sampleRate*0.005)):
-      print "GNURadio: Invalid SDR source sample rate - %f (got %f)" % \
-        (sampleRate, sdrSampleRate)
-      return None
-    print "  Configured Source Sample Rate = %e" % sdrSampleRate
-
-    sdrTuningFreq = sdrSrc.set_center_freq(tuningFreq, 0)
-    if (abs(sdrTuningFreq-tuningFreq) > abs(tuningFreq*0.005)):
-      print "GNURadio: Invalid SDR source tuning frequency - %f (got %f)" % \
-        (tuningFreq, sdrTuningFreq)
-      return None
-    print "  Configured Source Centre Frequency = %e" % sdrTuningFreq
-
-    bandwidth = sdrSampleRate * 0.8
-    if (bandwidth < minBandwidth):
-      bandwidth = minBandwidth
-    sdrBandwidth = sdrSrc.set_bandwidth(bandwidth)
-    print "  Configured Source Bandwidth = %d" % sdrBandwidth
-
-    # Implement the decimation filter to bring the input sample rate
-    # down to the required DSP processing rate. Calculate the FIR filter
-    # taps using the Blackman-Harris window method.
-    cutoffFreq = 0.375 / decimationFactor
-    transitionWidth = 0.25 / decimationFactor
-    filterTaps = filter.firdes.low_pass(1.0, 1.0,
-      cutoffFreq, transitionWidth, filter.firdes.WIN_BLACKMAN_HARRIS)
-    print "  Generated Source Decimation Filter (%d Taps)" % len(filterTaps)
-    self.firFilter = filter.fir_filter_ccf(decimationFactor, filterTaps)
-    topBlock.connect(sdrSrc, self.firFilter)
+    # TODO: set the non-default parameters.
     return self
 
   def grBlock(self):
-    return self.firFilter
+    return RadioSourceBlock.sdrSource
 
 #
-# Implements a radio sink data block. This wraps the cached component
-# reference to ensure that it is only initialised once.
+# Implements a radio sink data block using the gr-limesdr block which
+# supports native interpolation and digital filtering. This wraps the
+# cached component reference to ensure that it is only initialised once.
 #
 class RadioSinkBlock(FlowGraphBlock):
   sdrSink = None
-  minBandwidth = None
   def __init__(self):
     FlowGraphBlock.__init__(self)
     if (RadioSinkBlock.sdrSink == None):
-      sdrSnk = osmosdr.sink(args="soapy=0,driver=lime")
-      sdrSnk.set_antenna("BAND1")
-      print "Found LimeSDR Sink"
-      for sampleRange in sdrSnk.get_sample_rates():
-        print "  Sample range     : %d->%d" % \
-          (sampleRange.start(), sampleRange.stop())
-      for freqRange in sdrSnk.get_freq_range():
-        print "  Frequency range  : %d->%d" % \
-          (freqRange.start(), freqRange.stop())
-      minBandwidth = 10e10
-      for bwRange in sdrSnk.get_bandwidth_range():
-        if (minBandwidth > bwRange.start()):
-          minBandwidth = bwRange.start()
-        print "  Bandwidth range  : %d->%d" % \
-          (bwRange.start(), bwRange.stop())
-      print "  Min bandwidth    : %d" % minBandwidth
-      for gainRange in sdrSnk.get_gain_range():
-        print "  Gain range       : %d->%d" % \
-          (gainRange.start(), gainRange.stop())
-      selectedAntenna = sdrSnk.get_antenna()
-      for antennaName in sdrSnk.get_antennas():
-        if (antennaName == selectedAntenna):
-          print "  Antenna option * : %s" % antennaName
-        else:
-          print "  Antenna option   : %s" % antennaName
+      sdrSnk = limesdr.sink(
+        0,                  # device_number
+        1,                  # device_type = LimeSDR-Mini
+        1,                  # chip_mode = SISO
+        0,                  # channel = A (in SISO mode)
+        0,                  # file_switch = NO (don't load parameters from file)
+        "",                 # filename = unused for no parameter file
+        SDR_DEFAULT_FREQ,   # rf_freq (default to 433MHz ISM band)
+        SDR_SAMPLE_RATE,    # samp_rate (default set to nominal 400 kHz)
+        0,                  # oversample (interpolate by x16)
+        1,                  # calibration_ch0 enabled
+        2.5e6,              # calibr_bandw_ch0 (default set to minimum 2.5 MHz)
+        0,                  # calibration_ch1 disabled
+        0,                  # calibr_bandw_ch1 unused
+        1,                  # pa_path_mini = BAND1
+        0,                  # pa_path_ch0 unused for LimeSDR-Mini
+        0,                  # pa_path_ch1 unused for LimeSDR-Mini
+        1,                  # analog_filter_ch0 enabled
+        1.5e6,              # analog_bandw_ch0 (default set to minimum 1.5 MHz)
+        0,                  # analog_filter_ch1 disabled
+        1.5e6,              # analog_bandw_ch1 unused
+        1,                  # digital_filter_ch0 enabled
+        SDR_BANDWIDTH,      # digital_bandw_ch0 (default to nominal 200 kHz)
+        0,                  # digital_filter_ch1 disabled
+        SDR_BANDWIDTH,      # digital_bandw_ch1 unused
+        40,                 # gain_dB_ch0 (default set to nominal 40dB)
+        0                   # gain_dB_ch1 unused
+      )
       RadioSinkBlock.sdrSink = sdrSnk
-      RadioSinkBlock.minBandwidth = minBandwidth
 
   def setup(self, topBlock, params):
-    if (len(params) != 4):
-      print "GNURadio: Invalid number of radio sink parameters"
-      return None
-    try:
-      tuningFreq = float(params[0])
-      dspSampleRate = float(params[1])
-      outputGain = float(params[2])
-      interpolationFactor = int(float(params[3]))
-    except ValueError, msg:
-      print "GNURadio: Invalid radio sink parameter - %s" % msg
-      return None
-
-    # Set the sample rate and tuning frequency, checking that these are in
-    # range for the hardware.
-    sampleRate = dspSampleRate * interpolationFactor
-    sdrSnk = RadioSinkBlock.sdrSink
-    minBandwidth = RadioSinkBlock.minBandwidth
-    sdrSampleRate = sdrSnk.set_sample_rate(sampleRate)
-    if (abs(sdrSampleRate-sampleRate) > abs(sampleRate*0.005)):
-      print "GNURadio: Invalid SDR sink sample rate - %f (got %f)" % \
-        (sampleRate, sdrSampleRate)
-      return None
-    print "  Configured Sink Sample Rate = %e" % sdrSampleRate
-
-    sdrTuningFreq = sdrSnk.set_center_freq(tuningFreq, 0)
-    if (abs(sdrTuningFreq-tuningFreq) > abs(tuningFreq*0.005)):
-      print "GNURadio: Invalid SDR sink tuning frequency - %f (got %f)" % \
-        (tuningFreq, sdrTuningFreq)
-      return None
-    print "  Configured Sink Centre Frequency = %e" % sdrTuningFreq
-
-    sdrOutputGain = sdrSnk.set_gain(outputGain)
-    if (abs(sdrOutputGain-outputGain) > abs(outputGain*0.005)):
-      print "GNURadio: Invalid SDR sink gain level - %f (got %f)" % \
-        (tuningFreq, sdrTuningFreq)
-      return None
-    print "  Configured Sink Gain Level = %d" % sdrOutputGain
-
-    bandwidth = sdrSampleRate * 0.8
-    if (bandwidth < minBandwidth):
-      bandwidth = minBandwidth
-    sdrBandwidth = sdrSnk.set_bandwidth(bandwidth)
-    print "  Configured Sink Bandwidth = %d" % sdrBandwidth
-
-    # Implement the interpolation filter to bring the DSP processing rate
-    # up to the required output sampling rate. Calculate the FIR filter
-    # taps using the Blackman-Harris window method.
-    cutoffFreq = 0.375 / interpolationFactor
-    transitionWidth = 0.25 / interpolationFactor
-    filterTaps = filter.firdes.low_pass(1.0, 1.0,
-      cutoffFreq, transitionWidth, filter.firdes.WIN_BLACKMAN_HARRIS)
-    print "  Generated Sink Interpolation Filter (%d Taps)" % len(filterTaps)
-    self.firFilter = filter.interp_fir_filter_ccf(interpolationFactor, filterTaps)
-    topBlock.connect(self.firFilter, sdrSnk)
+    # TODO: set the non-default parameters.
     return self
 
   def grBlock(self):
-    return self.firFilter
+    return RadioSinkBlock.sdrSink
 
 #
 # Implements a frequency domain display sink block with complex data input.
