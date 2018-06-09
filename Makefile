@@ -29,7 +29,7 @@ uninstall:
 		fi
 
 # List of intermediate pseudo-targets.
-GnuRadio: /usr/local/lib/libgnuradio-osmosdr.so /usr/local/lib/libgnuradio-scratch_radio.so
+GnuRadio: /usr/local/lib/libgnuradio-limesdr.so /usr/local/lib/libgnuradio-scratch_radio.so
 LimeSuite: /usr/local/bin/LimeUtil
 
 ScratchRadio: $(SCRATCH_EXT_DIR)/gnuRadioExtension.js \
@@ -68,25 +68,25 @@ $(BUILD_DIR)/gr-scratch_radio/builddir:
 		cmake ../../../gnuradio/gr-scratch_radio; \
 		make
 
-# Install GNU Radio OsmoSDR library from latest source.
-/usr/local/lib/libgnuradio-osmosdr.so: $(BUILD_DIR)/gr-osmosdr/builddir
-	cd $(BUILD_DIR)/gr-osmosdr/builddir; \
+# Install GNU Radio LimeSDR library from latest source.
+/usr/local/lib/libgnuradio-limesdr.so: $(BUILD_DIR)/gr-limesdr/build
+	cd $(BUILD_DIR)/gr-limesdr/build; \
 		sudo make install; \
 		sudo ldconfig
 
-# Build OsmoSDR with SoapySDR support.
-$(BUILD_DIR)/gr-osmosdr/builddir: $(BUILD_DIR)/gr-osmosdr /usr/local/bin/SoapySDRUtil
-	cd $(BUILD_DIR)/gr-osmosdr; \
-		mkdir builddir; \
-		cd builddir; \
+# Build GNU Radio LimeSDR library from latest source.
+$(BUILD_DIR)/gr-limesdr/build: $(BUILD_DIR)/gr-limesdr
+	cd $(BUILD_DIR)/gr-limesdr; \
+		mkdir build; \
+		cd build; \
 		cmake ..; \
 		make
 
-# Get the latest code from the OsmoSDR repo.
-$(BUILD_DIR)/gr-osmosdr: $(BUILD_DIR)
+# Get the latest code from the GNU Radio LimeSDR library repo.
+$(BUILD_DIR)/gr-limesdr: $(BUILD_DIR)
 	cd $(BUILD_DIR); \
-		rm -rf gr-osmosdr; \
-		git clone git://git.osmocom.org/gr-osmosdr
+		rm -rf gr-limesdr; \
+		git clone https://github.com/myriadrf/gr-limesdr.git
 
 # Install LimeSuite.
 /usr/local/bin/LimeUtil: $(BUILD_DIR)/LimeSuite/builddir
