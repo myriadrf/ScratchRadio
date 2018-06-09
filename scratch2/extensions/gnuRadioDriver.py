@@ -20,7 +20,7 @@ COMMAND_PIPE_NAME = '/tmp/gr-control/command.pipe'
 
 SDR_DEFAULT_FREQ = 433.92e6
 SDR_SAMPLE_RATE  = 400e3
-SDR_BANDWIDTH    = 200e4
+SDR_BANDWIDTH    = 300e3
 
 #
 # Specifies the base class for a managed flow graph block.
@@ -52,7 +52,7 @@ class RadioSourceBlock(FlowGraphBlock):
         "",                 # filename = unused for no parameter file
         SDR_DEFAULT_FREQ,   # rf_freq (default to 433MHz ISM band)
         SDR_SAMPLE_RATE,    # samp_rate (default set to nominal 400 kHz)
-        0,                  # oversample (decimate by x16)
+        16,                 # oversample (decimate by x16)
         1,                  # calibration_ch0 enabled
         2.5e6,              # calibr_bandw_ch0 (default set to minimum 2.5 MHz)
         0,                  # calibration_ch1 disabled
@@ -68,7 +68,7 @@ class RadioSourceBlock(FlowGraphBlock):
         SDR_BANDWIDTH,      # digital_bandw_ch0 (default to nominal 200 kHz)
         0,                  # digital_filter_ch1 disabled
         SDR_BANDWIDTH,      # digital_bandw_ch1 unused
-        40,                 # gain_dB_ch0 (default set to nominal 40dB)
+        30,                 # gain_dB_ch0 (default set to nominal 30dB)
         0                   # gain_dB_ch1 unused
       )
       RadioSourceBlock.sdrSource = sdrSrc
@@ -99,23 +99,23 @@ class RadioSinkBlock(FlowGraphBlock):
         "",                 # filename = unused for no parameter file
         SDR_DEFAULT_FREQ,   # rf_freq (default to 433MHz ISM band)
         SDR_SAMPLE_RATE,    # samp_rate (default set to nominal 400 kHz)
-        0,                  # oversample (interpolate by x16)
-        1,                  # calibration_ch0 enabled
-        2.5e6,              # calibr_bandw_ch0 (default set to minimum 2.5 MHz)
+        16,                 # oversample (interpolate by x16)
+        0,                  # calibration_ch0 disabled - TODO: get this working
+        5e6,                # calibr_bandw_ch0 (default set to minimum 5 MHz)
         0,                  # calibration_ch1 disabled
         0,                  # calibr_bandw_ch1 unused
         1,                  # pa_path_mini = BAND1
         0,                  # pa_path_ch0 unused for LimeSDR-Mini
         0,                  # pa_path_ch1 unused for LimeSDR-Mini
         1,                  # analog_filter_ch0 enabled
-        1.5e6,              # analog_bandw_ch0 (default set to minimum 1.5 MHz)
+        5e6,                # analog_bandw_ch0 (default set to minimum 5 MHz)
         0,                  # analog_filter_ch1 disabled
         1.5e6,              # analog_bandw_ch1 unused
         1,                  # digital_filter_ch0 enabled
         SDR_BANDWIDTH,      # digital_bandw_ch0 (default to nominal 200 kHz)
         0,                  # digital_filter_ch1 disabled
         SDR_BANDWIDTH,      # digital_bandw_ch1 unused
-        40,                 # gain_dB_ch0 (default set to nominal 40dB)
+        30,                 # gain_dB_ch0 (default set to nominal 30dB)
         0                   # gain_dB_ch1 unused
       )
       RadioSinkBlock.sdrSink = sdrSnk
