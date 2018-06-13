@@ -12,6 +12,7 @@ from Queue import Queue
 import os
 import sys
 import time
+import re
 import sip
 import limesdr
 import scratch_radio
@@ -40,11 +41,11 @@ class FlowGraphBlock(object):
 #
 class RadioSourceBlock(FlowGraphBlock):
   sdrSource = None
-  def __init__(self):
+  def __init__(self, deviceSerialNumber):
     FlowGraphBlock.__init__(self)
     if (RadioSourceBlock.sdrSource == None):
       sdrSrc = limesdr.source(
-        0,                  # device_number
+        deviceSerialNumber, # device_number
         1,                  # device_type = LimeSDR-Mini
         1,                  # chip_mode = SISO
         0,                  # channel = A (in SISO mode)
@@ -69,7 +70,11 @@ class RadioSourceBlock(FlowGraphBlock):
         0,                  # digital_filter_ch1 disabled
         SDR_BANDWIDTH,      # digital_bandw_ch1 unused
         30,                 # gain_dB_ch0 (default set to nominal 30dB)
-        0                   # gain_dB_ch1 unused
+        0,                  # gain_dB_ch1 unused
+        0,                  # nco_freq_ch0 is unused
+        0,                  # nco_freq_ch1 is unused
+        0,                  # cmix_mode_ch0 is unused
+        0                   # cmix_mode_ch1 is unused
       )
       RadioSourceBlock.sdrSource = sdrSrc
 
@@ -87,11 +92,11 @@ class RadioSourceBlock(FlowGraphBlock):
 #
 class RadioSinkBlock(FlowGraphBlock):
   sdrSink = None
-  def __init__(self):
+  def __init__(self, deviceSerialNumber):
     FlowGraphBlock.__init__(self)
     if (RadioSinkBlock.sdrSink == None):
       sdrSnk = limesdr.sink(
-        0,                  # device_number
+        deviceSerialNumber, # device_number
         1,                  # device_type = LimeSDR-Mini
         1,                  # chip_mode = SISO
         0,                  # channel = A (in SISO mode)
@@ -116,7 +121,11 @@ class RadioSinkBlock(FlowGraphBlock):
         0,                  # digital_filter_ch1 disabled
         SDR_BANDWIDTH,      # digital_bandw_ch1 unused
         30,                 # gain_dB_ch0 (default set to nominal 30dB)
-        0                   # gain_dB_ch1 unused
+        0,                  # gain_dB_ch1 unused
+        0,                  # nco_freq_ch0 is unused
+        0,                  # nco_freq_ch1 is unused
+        0,                  # cmix_mode_ch0 is unused
+        0                   # cmix_mode_ch1 is unused
       )
       RadioSinkBlock.sdrSink = sdrSnk
 
@@ -587,7 +596,7 @@ class SampleRateLimiterBlock(FlowGraphBlock):
 # creation functions.
 #
 class FlowGraph(gr.top_block):
-  def __init__(self):
+  def __init__(self, deviceSerialNumber):
     gr.top_block.__init__(self, "Scratch Flow Graph")
     self.comps = {}
     self.compCreateFns = {}
@@ -608,17 +617,18 @@ class FlowGraph(gr.top_block):
     self.compCreateFns["OOK-DEMODULATOR"] = self._createOokDemodulator
     self.compCreateFns["BIT-RATE-SAMPLER"] = self._createSymbolSync
     self.compCreateFns["SAMPLE-RATE-LIMITER"] = self._createSampleRateLimiter
+    self.deviceSerialNumber = deviceSerialNumber
 
   # Add a new radio source data block to the hierarchy. This uses the Lime
   # Microsystems SoapySDR driver.
   def _createRadioSource(self, compName, params):
-    radioSourceBlock = RadioSourceBlock()
+    radioSourceBlock = RadioSourceBlock(deviceSerialNumber)
     return radioSourceBlock.setup(self, params)
 
   # Add a new radio sink data block to the hierarchy. This uses the Lime
   # Microsystems SoapySDR driver.
   def _createRadioSink(self, compName, params):
-    radioSinkBlock = RadioSinkBlock()
+    radioSinkBlock = RadioSinkBlock(deviceSerialNumber)
     return radioSinkBlock.setup(self, params)
 
   # Create a new display sink. This is currently limited to a simple FFT
@@ -774,10 +784,10 @@ class FlowGraph(gr.top_block):
 # incoming commands.
 #
 class CommandParser(QtCore.QObject):
-  def __init__(self, parent, commandQueue):
+  def __init__(self, parent, commandQueue, deviceSerialNumber):
     QtCore.QObject.__init__(self, parent)
     self.cmdQueue = commandQueue
-    self.flowGraph = FlowGraph()
+    self.flowGraph = FlowGraph(deviceSerialNumber)
     self.radioRunning = False
     self.timerId = self.startTimer(500)
 
@@ -898,16 +908,41 @@ class CommandReader(Thread):
         while (self.cmdQueue.full()):
           time.sleep(0.5)
 
-def main():
+#
+# Check for the availability of a single LimeMini device on startup.
+#
+def checkForLimeMini():
+  regex = '\s*\*\s*\[\s*(.+),\s*(.+),\s*(.+),\s*(.+),\s*serial=(.+)\]'
+  limeUtil = os.popen("LimeUtil -find")
+  deviceList = limeUtil.readlines()
+  limeUtil.close()
+  deviceSerialNumber = None
+  for deviceInfo in deviceList:
+    matches = re.match(regex, deviceInfo)
+    if (matches != None):
+      deviceInfo = matches.groups()
+      if (deviceInfo[0] == "LimeSDR Mini"):
+        deviceSerialNumber = deviceInfo[4]
+  return deviceSerialNumber
+
+#
+# Run the main application.
+#
+def runApp(deviceSerialNumber):
   qapp = QtGui.QApplication(sys.argv)
   cmdQueue = Queue(8)
   cmdReader = CommandReader(cmdQueue)
   cmdReader.start()
-  cmdParser = CommandParser(qapp, cmdQueue)
+  cmdParser = CommandParser(qapp, cmdQueue, deviceSerialNumber)
   qapp.exec_()
 
 if __name__ == '__main__':
   try:
-    main()
+    deviceSerialNumber = checkForLimeMini()
+    if (deviceSerialNumber == None):
+      print "No LimeSDR Mini Device Found!"
+    else:
+      print "Starting GNU Radio Driver Application For Device: ", deviceSerialNumber
+      runApp(deviceSerialNumber)
   except [[KeyboardInterrupt]]:
     pass
