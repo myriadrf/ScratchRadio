@@ -79,7 +79,15 @@ class RadioSourceBlock(FlowGraphBlock):
       RadioSourceBlock.sdrSource = sdrSrc
 
   def setup(self, topBlock, params):
-    # TODO: set the non-default parameters.
+    if (len(params) != 1):
+      print "GNURadio: Invalid number of radio source parameters"
+      return None
+    try:
+      tuningFreq = float(params[0])
+    except ValueError, msg:
+      print "GNURadio: Invalid radio source parameter - %s" % msg
+      return None
+    RadioSourceBlock.sdrSource.set_rf_freq(tuningFreq)
     return self
 
   def grBlock(self):
@@ -130,7 +138,15 @@ class RadioSinkBlock(FlowGraphBlock):
       RadioSinkBlock.sdrSink = sdrSnk
 
   def setup(self, topBlock, params):
-    # TODO: set the non-default parameters.
+    if (len(params) != 1):
+      print "GNURadio: Invalid number of radio sink parameters"
+      return None
+    try:
+      tuningFreq = float(params[0])
+    except ValueError, msg:
+      print "GNURadio: Invalid radio sink parameter - %s" % msg
+      return None
+    RadioSinkBlock.sdrSink.set_rf_freq(tuningFreq)
     return self
 
   def grBlock(self):
