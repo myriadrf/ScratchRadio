@@ -69,7 +69,7 @@ class RadioSourceBlock(FlowGraphBlock):
         SDR_BANDWIDTH,      # digital_bandw_ch0 (default to nominal 200 kHz)
         0,                  # digital_filter_ch1 disabled
         SDR_BANDWIDTH,      # digital_bandw_ch1 unused
-        30,                 # gain_dB_ch0 (default set to nominal 30dB)
+        40,                 # gain_dB_ch0 (default set to nominal 40dB)
         0,                  # gain_dB_ch1 unused
         0,                  # nco_freq_ch0 is unused
         0,                  # nco_freq_ch1 is unused
@@ -128,7 +128,7 @@ class RadioSinkBlock(FlowGraphBlock):
         SDR_BANDWIDTH,      # digital_bandw_ch0 (default to nominal 200 kHz)
         0,                  # digital_filter_ch1 disabled
         SDR_BANDWIDTH,      # digital_bandw_ch1 unused
-        30,                 # gain_dB_ch0 (default set to nominal 30dB)
+        40,                 # gain_dB_ch0 (default set to nominal 40dB)
         0,                  # gain_dB_ch1 unused
         0,                  # nco_freq_ch0 is unused
         0,                  # nco_freq_ch1 is unused

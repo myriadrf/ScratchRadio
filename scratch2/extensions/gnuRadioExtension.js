@@ -15,7 +15,7 @@
     var rxMsgBufSize = 255;
     var rxMsgBuffer = Buffer.alloc(rxMsgBufSize);
     var rxMsgOffset = 0;
-    var messageBitRate = 4800;
+    var messageBitRate = 1200;
     var sampleRate = 400000;
     var errorCallbacks = [];
     var componentNameSet = new Set();
