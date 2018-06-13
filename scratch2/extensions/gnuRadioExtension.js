@@ -410,11 +410,11 @@
             [' ', '\u2503 simple deframer %s', 'createSimpleDeframer', 'rx-deframer'],
             [' ', '\u2503 Manchester encoder %s', 'createManchesterEncoder', 'mcr-encoder'],
             [' ', '\u2503 Manchester decoder %s', 'createManchesterDecoder', 'mcr-decoder'],
-            [' ', '\u2503 OOK modulator %s at %n kHz', 'createOokModulator', 'ook-modulator', sampleRate/4000],
+            [' ', '\u2503 OOK modulator %s at %n kHz', 'createOokModulator', 'ook-modulator', sampleRate/8000],
             [' ', '\u2503 OOK demodulator %s', 'createOokDemodulator', 'ook-demodulator'],
             [' ', '\u2503 bit rate sampler %s', 'createBitRateSampler', 'bit-sampler'],
             [' ', '\u2503 low pass filter %s with bandwidth %n KHz', 'createLowPassFilter', 'lp-filter', sampleRate/4000],
-            [' ', '\u2503 band pass filter %s with pass band %n KHz to %n KHz', 'createBandPassFilter', 'bp-filter', sampleRate/8000, 3*sampleRate/8000],
+            [' ', '\u2503 band pass filter %s with pass band %n KHz to %n KHz', 'createBandPassFilter', 'bp-filter', sampleRate/16000, 3*sampleRate/16000],
         ],
         menus:{
             display_type: ['spectrum', 'waterfall']
