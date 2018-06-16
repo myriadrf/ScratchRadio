@@ -34,7 +34,7 @@ namespace gr {
       uint32_t d_header;
       int d_msg_byte_count;
       int d_msg_length;
-      uint8_t d_msg_buffer[256];
+      uint8_t* d_msg_buffer;
       uint32_t d_checksum_0;
       uint32_t d_checksum_1;
       int d_idle_count;

@@ -51,6 +51,7 @@ namespace gr {
       if ((!d_source) || (!d_source->is_open ())) {
         // TODO: How do we handle missing files?
       }
+      d_msg_buffer = new uint8_t [MSG_BUFFER_LEN];
 
       // Determine the output buffer threshold required to limit the
       // latency imposed by the output buffer.
@@ -69,6 +70,7 @@ namespace gr {
           d_source->close();
         }
         delete d_source;
+        delete[] d_msg_buffer;
       }
     }
 

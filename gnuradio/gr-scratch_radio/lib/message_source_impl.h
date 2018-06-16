@@ -38,7 +38,7 @@ namespace gr {
       int d_msg_byte_count;
       int d_msg_length;
       std::ifstream* d_source;
-      uint8_t d_msg_buffer[MSG_BUFFER_LEN];
+      uint8_t* d_msg_buffer;
 
       bool m_poll_for_message(void);
 
