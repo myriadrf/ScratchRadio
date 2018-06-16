@@ -237,19 +237,19 @@
     }
 
     // Block for creating a new SoapySDR radio source.
-    ext.createRadioSource = function(name, frequency) {
+    ext.createRadioSource = function(name, frequency, gain) {
         if (this._checkComponentAbsent(name)) {
             var scaledFreq = frequency * 1e6;
-            this._sendCommand("CREATE RADIO-SOURCE " + name + " " + scaledFreq);
+            this._sendCommand("CREATE RADIO-SOURCE " + name + " " + scaledFreq + " " + gain);
             this._connectDataSource(name);
         }
     };
 
     // Block for creating a new SoapySDR radio sink.
-    ext.createRadioSink = function(name, frequency) {
+    ext.createRadioSink = function(name, frequency, gain) {
         if (this._checkComponentAbsent(name)) {
             var scaledFreq = frequency * 1e6;
-            this._sendCommand("CREATE RADIO-SINK " + name + " " + scaledFreq);
+            this._sendCommand("CREATE RADIO-SINK " + name + " " + scaledFreq + " " + gain);
             this._connectDataSink(name);
         }
     };
@@ -400,10 +400,10 @@
             [' ', 'send message %s', 'sendSimpleMessage', 'Hello World'],
             ['R', 'receive message', 'receiveSimpleMessage'],
             ['R', 'receive error', 'receiveErrorMessage'],
-            [' ', '\u2533 radio source %s at %n MHz', 'createRadioSource', 'lime-source', 433.92],
+            [' ', '\u2533 radio source %s at %n MHz, gain %n dB', 'createRadioSource', 'lime-source', 433.92, 40],
             [' ', '\u2533 message source %s', 'createMessageSource', 'tx-message'],
             [' ', '\u2513 source data from %s', 'makeSimpleConnection', 'producer'],
-            [' ', '\u253B radio sink %s at %n MHz', 'createRadioSink', 'lime-sink', 433.92],
+            [' ', '\u253B radio sink %s at %n MHz, gain %n dB', 'createRadioSink', 'lime-sink', 433.92, 40],
             [' ', '\u253B display %m.display_type sink %s at %n MHz', 'createDisplaySink', 'spectrum', 'spectrum', 433.92],
             [' ', '\u253B message sink %s', 'createMessageSink', 'rx-message'],
             [' ', '\u2503 simple framer %s', 'createSimpleFramer', 'tx-framer'],

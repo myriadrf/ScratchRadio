@@ -79,15 +79,17 @@ class RadioSourceBlock(FlowGraphBlock):
       RadioSourceBlock.sdrSource = sdrSrc
 
   def setup(self, topBlock, params):
-    if (len(params) != 1):
+    if (len(params) != 2):
       print "GNURadio: Invalid number of radio source parameters"
       return None
     try:
       tuningFreq = float(params[0])
+      rxGain = int(float(params[1]))
     except ValueError, msg:
       print "GNURadio: Invalid radio source parameter - %s" % msg
       return None
     RadioSourceBlock.sdrSource.set_rf_freq(tuningFreq)
+    RadioSourceBlock.sdrSource.set_gain(rxGain, 0)
     return self
 
   def grBlock(self):
@@ -117,7 +119,7 @@ class RadioSinkBlock(FlowGraphBlock):
         5e6,                # calibr_bandw_ch0 (default set to minimum 5 MHz)
         0,                  # calibration_ch1 disabled
         0,                  # calibr_bandw_ch1 unused
-        1,                  # pa_path_mini = BAND1
+        2,                  # pa_path_mini = BAND2
         0,                  # pa_path_ch0 unused for LimeSDR-Mini
         0,                  # pa_path_ch1 unused for LimeSDR-Mini
         1,                  # analog_filter_ch0 enabled
@@ -138,15 +140,17 @@ class RadioSinkBlock(FlowGraphBlock):
       RadioSinkBlock.sdrSink = sdrSnk
 
   def setup(self, topBlock, params):
-    if (len(params) != 1):
+    if (len(params) != 2):
       print "GNURadio: Invalid number of radio sink parameters"
       return None
     try:
       tuningFreq = float(params[0])
+      txGain = int(float(params[1]))
     except ValueError, msg:
       print "GNURadio: Invalid radio sink parameter - %s" % msg
       return None
     RadioSinkBlock.sdrSink.set_rf_freq(tuningFreq)
+    RadioSinkBlock.sdrSink.set_gain(txGain, 0)
     return self
 
   def grBlock(self):
