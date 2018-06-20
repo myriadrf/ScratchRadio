@@ -46,12 +46,11 @@ namespace gr {
               gr::io_signature::make(1, 1, sizeof(uint8_t)),
               gr::io_signature::make(1, 1, sizeof(gr_complex)))
     {
-      struct timespec ts_now;
       d_sample_rate = sample_rate;
       d_sample_count = 0;
       d_current_symbol = 0;
-      clock_gettime (CLOCK_MONOTONIC, &ts_now);
-      d_timestamp = (int64_t) ts_now.tv_sec * 1000000000 + ts_now.tv_nsec;
+      d_timestamp = 0;
+      d_first_call = true;
 
       // Build the table of modulated symbol samples.
       d_symbol_length = sample_rate / baud_rate;
@@ -83,6 +82,7 @@ namespace gr {
                        gr_vector_const_void_star &input_items,
                        gr_vector_void_star &output_items)
     {
+      struct timespec ts_now;
       const uint8_t *in = (const uint8_t *) input_items[0];
       gr_complex *out = (gr_complex *) output_items[0];
       int in_i = 0;
@@ -91,8 +91,12 @@ namespace gr {
       // Perform basic output rate limiting to prevent transmit buffer
       // bloat. This approach should be replaced by proper output buffer
       // latency management when possible. Stalls on idle cycles only.
+      if (d_first_call) {
+        d_first_call = false;
+        clock_gettime (CLOCK_MONOTONIC, &ts_now);
+        d_timestamp = (int64_t) ts_now.tv_sec * 1000000000 + ts_now.tv_nsec;
+      }
       if (in[0] == 0xFF) {
-        struct timespec ts_now;
         int64_t now;
         clock_gettime (CLOCK_MONOTONIC, &ts_now);
         now = (int64_t) ts_now.tv_sec * 1000000000 + ts_now.tv_nsec;

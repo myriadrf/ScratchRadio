@@ -23,7 +23,7 @@
 
 #include <scratch_radio/ook_modulator.h>
 
-#define OUTPUT_LATENCY 1000
+#define OUTPUT_LATENCY 250
 
 namespace gr {
   namespace scratch_radio {
@@ -35,6 +35,7 @@ namespace gr {
       int d_sample_count;
       int d_current_symbol;
       int64_t d_timestamp;
+      bool d_first_call;
       int d_symbol_length;
       gr_complex* d_sample_table;
 
