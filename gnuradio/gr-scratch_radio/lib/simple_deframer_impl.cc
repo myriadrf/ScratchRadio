@@ -48,7 +48,6 @@ namespace gr {
       d_header = 0;
       d_msg_byte_count = 0;
       d_msg_length = 0;
-      d_msg_buffer = new uint8_t [256];
       d_checksum_0 = 0;
       d_checksum_1 = 0;
       d_idle_count = 0;
@@ -61,7 +60,6 @@ namespace gr {
      */
     simple_deframer_impl::~simple_deframer_impl()
     {
-      delete[] d_msg_buffer;
     }
 
     void
