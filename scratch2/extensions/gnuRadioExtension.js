@@ -12,7 +12,8 @@
     var txMsgStart = false;
     var rxMsgStart = false;
     var radioRunning = false;
-    var rxMsgBufSize = 255;
+    var rxMsgBufSize = 1024;
+    var rxMsgBufThreshold = 768;
     var rxMsgBuffer = Buffer.alloc(rxMsgBufSize);
     var rxMsgOffset = 0;
     var messageBitRate = 1200;
@@ -111,50 +112,61 @@
         if (rxMsgPipe == null) {
             this._errorMessage("Radio Not Running");
             callback("");
+        } else if (rxMsgOffset >= rxMsgBufThreshold) {
+            this._processRxMessage(callback);
         } else {
             fs.read(rxMsgPipe, rxMsgBuffer, rxMsgOffset, rxMsgBufSize-rxMsgOffset, null,
                 function(err, len, buf) {
                     if (err == null) {
                         if (len == 0) {
-                            this._receiveMessage(callback);
+                            setTimeout(this._receiveMessage, 1000, callback);
                         } else {
-                            var rxMsgString;
                             rxMsgOffset += len;
-                            for (var i = 0; i < rxMsgOffset; i++) {
-
-                                // On detecting an end of line character, copy
-                                // the line to the received message string and
-                                // shift the residual buffer contents down.
-                                if (buf[i] == 10) {
-                                    rxMsgString = buf.toString('ascii', 0, i);
-                                    if (i == rxMsgOffset-1) {
-                                        rxMsgOffset = 0;
-                                    } else {
-                                        buf.copy(buf, 0, i+1, rxMsgOffset-i-1);
-                                        rxMsgOffset -= i+1;
-                                    }
-                                    break;
-                                }
-                            }
-
-                            // Invoke callback or retry.
-                            if (rxMsgString == null) {
-                                if (rxMsgOffset >= rxMsgBufSize) {
-                                    rxMsgOffset -= 1;
-                                }
-                                this._receiveMessage(callback);
-                            } else {
-                                callback(rxMsgString);
-                            }
+                            this._processRxMessage(callback);
                         }
                     } else if (err.code == "EAGAIN") {
-                        this._receiveMessage(callback);
+                        if (rxMsgOffset > 0) {
+                            this._processRxMessage(callback);
+                        } else {
+                            setTimeout(this._receiveMessage, 1000, callback);
+                        }
                     } else {
                         this._errorMessage("Rx Message Error : " + err.code);
                         callback("");
                     }
                 }
             );
+        }
+    }
+
+    // Process a received message.
+    this._processRxMessage = function(callback) {
+        var rxMsgString;
+        for (var i = 0; i < rxMsgOffset; i++) {
+
+            // On detecting an end of line character, copy the line to
+            // the received message string and shift the residual buffer
+            // contents down.
+            if (rxMsgBuffer[i] == 10) {
+                rxMsgString = rxMsgBuffer.toString('ascii', 0, i);
+                if (i == rxMsgOffset-1) {
+                    rxMsgOffset = 0;
+                } else {
+                    rxMsgBuffer.copy(rxMsgBuffer, 0, i+1, rxMsgOffset);
+                    rxMsgOffset -= i+1;
+                }
+                break;
+            }
+        }
+
+        // Invoke callback or retry.
+        if (rxMsgString == null) {
+            if (rxMsgOffset >= rxMsgBufSize) {
+                rxMsgOffset -= 1;
+            }
+            setTimeout(this._receiveMessage, 1000, callback);
+        } else {
+            callback(rxMsgString);
         }
     }
 
@@ -226,6 +238,9 @@
             txMsgPipe = null;
         }
         if (rxMsgPipe != null) {
+            // TODO: This discards the local message buffer but we don't
+            // currently discard any residual input FIFO file contents.
+            rxMsgOffset = 0;
             fs.closeSync(rxMsgPipe);
             rxMsgPipe = null;
         }
