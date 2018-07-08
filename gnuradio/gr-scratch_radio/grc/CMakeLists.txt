@@ -27,7 +27,5 @@ install(FILES
     scratch_radio_ook_modulator.xml
     scratch_radio_ook_demodulator.xml
     scratch_radio_symbol_sync.xml
-    scratch_radio_cic_decimator_cc.xml
-    scratch_radio_cic_interpolator_cc.xml
     scratch_radio_fast_agc_cc.xml DESTINATION share/gnuradio/grc/blocks
 )

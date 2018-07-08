@@ -17,8 +17,6 @@
 #include "scratch_radio/ook_modulator.h"
 #include "scratch_radio/ook_demodulator.h"
 #include "scratch_radio/symbol_sync.h"
-#include "scratch_radio/cic_decimator_cc.h"
-#include "scratch_radio/cic_interpolator_cc.h"
 #include "scratch_radio/fast_agc_cc.h"
 %}
 
@@ -41,9 +39,5 @@ GR_SWIG_BLOCK_MAGIC2(scratch_radio, ook_modulator);
 GR_SWIG_BLOCK_MAGIC2(scratch_radio, ook_demodulator);
 %include "scratch_radio/symbol_sync.h"
 GR_SWIG_BLOCK_MAGIC2(scratch_radio, symbol_sync);
-%include "scratch_radio/cic_decimator_cc.h"
-GR_SWIG_BLOCK_MAGIC2(scratch_radio, cic_decimator_cc);
-%include "scratch_radio/cic_interpolator_cc.h"
-GR_SWIG_BLOCK_MAGIC2(scratch_radio, cic_interpolator_cc);
 %include "scratch_radio/fast_agc_cc.h"
 GR_SWIG_BLOCK_MAGIC2(scratch_radio, fast_agc_cc);
