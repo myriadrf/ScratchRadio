@@ -320,73 +320,6 @@ class BandPassFilterBlock(FlowGraphBlock):
     return self.firFilter
 
 #
-# Implements a decimation filter block with configurable decimation rate.
-#
-class DecimationFilterBlock(FlowGraphBlock):
-  def __init__(self):
-    FlowGraphBlock.__init__(self)
-
-  def setup(self, params):
-    if (len(params) != 2):
-      print "GNURadio: Invalid number of decimation filter parameters"
-      return None
-    try:
-      decimationFactor = int(params[0])
-      gain = float(params[1])
-    except ValueError, msg:
-      print "GNURadio: Invalid decimation filter parameter - %s" % msg
-      return None
-    if ((decimationFactor <= 0) or (decimationFactor > 20)):
-      print "GNURadio: Decimation factor out of range"
-      return None
-
-    # Calculate the FIR filter taps using the Blackman-Harris window method.
-    cutoffFreq = 0.375 / decimationFactor
-    transitionWidth = 0.25 / decimationFactor
-    filterTaps = filter.firdes.low_pass(gain, 1.0,
-      cutoffFreq, transitionWidth, filter.firdes.WIN_BLACKMAN_HARRIS)
-    print "Generated FIR filter with %d taps" % len(filterTaps)
-    self.firFilter = filter.fir_filter_ccf(decimationFactor, filterTaps)
-    return self
-
-  def grBlock(self):
-    return self.firFilter
-
-#
-# Implements an interpolation filter block with configurable interpolation
-# rate.
-#
-class InterpolationFilterBlock(FlowGraphBlock):
-  def __init__(self):
-    FlowGraphBlock.__init__(self)
-
-  def setup(self, params):
-    if (len(params) != 2):
-      print "GNURadio: Invalid number of interpolation filter parameters"
-      return None
-    try:
-      interpolationFactor = int(params[0])
-      gain = float(params[1])
-    except ValueError, msg:
-      print "GNURadio: Invalid interpolation filter parameter - %s" % msg
-      return None
-    if ((interpolationFactor <= 0) or (interpolationFactor > 20)):
-      print "GNURadio: Interpolation factor out of range"
-      return None
-
-    # Calculate the FIR filter taps using the Blackman-Harris window method.
-    cutoffFreq = 0.375 / interpolationFactor
-    transitionWidth = 0.25 / interpolationFactor
-    filterTaps = filter.firdes.low_pass(gain, 1.0,
-      cutoffFreq, transitionWidth, filter.firdes.WIN_BLACKMAN_HARRIS)
-    print "Generated FIR filter with %d taps" % len(filterTaps)
-    self.firFilter = filter.interp_fir_filter_ccf(interpolationFactor, filterTaps)
-    return self
-
-  def grBlock(self):
-    return self.firFilter
-
-#
 # Implements a ScratchRadio message source block.
 #
 class MessageSourceBlock(FlowGraphBlock):
@@ -578,39 +511,6 @@ class SymbolSyncBlock(FlowGraphBlock):
     return self.symbolSync
 
 #
-# Implements a sample rate limiter block which should be used in loopback
-# type applications to limit the average sample rate.
-#
-class SampleRateLimiterBlock(FlowGraphBlock):
-  def __init__(self):
-    FlowGraphBlock.__init__(self)
-
-  def setup(self, params):
-    if (len(params) != 2):
-      print "GNURadio: Invalid number of sample rate limit parameters"
-      return None
-
-    # Specify the sample data type.
-    if params[0] == 'b':
-      sampleSize = 1
-    else:
-      print "GNURadio: Unsupported sample rate limit data type"
-      return None
-
-    # Specify the sample rate.
-    try:
-      sampleRate = float(params[1])
-    except ValueError, msg:
-      print "GNURadio: Invalid sample rate limit parameter - %s" % msg
-      return None
-
-    self.throttleBlock = blocks.throttle(sampleSize, sampleRate)
-    return self
-
-  def grBlock(self):
-    return self.throttleBlock
-
-#
 # Implements the flow graph. On initialisation ensures that the graph is reset
 # to a known state and builds a mapping of component types to their associated
 # creation functions.
@@ -625,8 +525,6 @@ class FlowGraph(gr.top_block):
     self.compCreateFns["DISPLAY-SINK"] = self._createDisplaySink
     self.compCreateFns["LOW-PASS-FILTER"] = self._createLowPassFilter
     self.compCreateFns["BAND-PASS-FILTER"] = self._createBandPassFilter
-    self.compCreateFns["DECIMATION-FILTER"] = self._createDecimationFilter
-    self.compCreateFns["INTERPOLATION-FILTER"] = self._createInterpolationFilter
     self.compCreateFns["MESSAGE-SOURCE"] = self._createMessageSource
     self.compCreateFns["MESSAGE-SINK"] = self._createMessageSink
     self.compCreateFns["SIMPLE-FRAMER"] = self._createSimpleFramer
@@ -636,7 +534,6 @@ class FlowGraph(gr.top_block):
     self.compCreateFns["OOK-MODULATOR"] = self._createOokModulator
     self.compCreateFns["OOK-DEMODULATOR"] = self._createOokDemodulator
     self.compCreateFns["BIT-RATE-SAMPLER"] = self._createSymbolSync
-    self.compCreateFns["SAMPLE-RATE-LIMITER"] = self._createSampleRateLimiter
     self.deviceSerialNumber = deviceSerialNumber
 
   # Add a new radio source data block to the hierarchy. This uses the Lime
@@ -674,20 +571,6 @@ class FlowGraph(gr.top_block):
   # cutoff points and filter gain.
   def _createBandPassFilter(self, compName, params):
     filterBlock = BandPassFilterBlock()
-    return filterBlock.setup(params)
-
-  # Create a new decimation filter. This is currently limited in terms
-  # configuration options to specifying the decimation factor and gain.
-  # The 3dB cutoff point is at 75% of the downsampled Nyquist rate.
-  def _createDecimationFilter(self, compName, params):
-    filterBlock = DecimationFilterBlock()
-    return filterBlock.setup(params)
-
-  # Create a new interpolation filter. This is currently limited in terms
-  # configuration options to specifying the interpolation factor and gain.
-  # The 3dB cutoff point is at 75% of the input Nyquist rate.
-  def _createInterpolationFilter(self, compName, params):
-    filterBlock = InterpolationFilterBlock()
     return filterBlock.setup(params)
 
   # Create a new message source block.
@@ -730,11 +613,6 @@ class FlowGraph(gr.top_block):
   def _createSymbolSync(self, compName, params):
     symbolSync = SymbolSyncBlock()
     return symbolSync.setup(params)
-
-  # Create a new sample rate limiting block.
-  def _createSampleRateLimiter(self, compName, params):
-    sampleRateLimiter = SampleRateLimiterBlock()
-    return sampleRateLimiter.setup(params)
 
   # Resets the flow graph by disconnecting all the components and then removing
   # them from the component table. This uses the cleanup method to release any
