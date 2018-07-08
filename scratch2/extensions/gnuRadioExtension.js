@@ -437,5 +437,5 @@
     };
 
     // Register the extension
-    ScratchExtensions.register('Lua Radio Extension', descriptor, ext);
+    ScratchExtensions.register('Scratch Radio', descriptor, ext);
 })({});
