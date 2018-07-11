@@ -8,11 +8,17 @@ Raspbian Stretch is the recommended host configuration.
 
 ## Installation and Setup
 
-The following installation steps assume a new installation of Raspbian Stretch
-is being used. All the required package dependencies for building the various
-SDR components can be installed by running the 'install_deps.sh' script with
-superuser privileges. Note that it may be necessary to re-run this script if
-any of the package installation steps fail:
+The following installation steps assume an up to date installation of Raspbian
+Stretch is being used. In order to ensure that all the latest updates have
+been applied, the following commands may be used:
+
+  > sudo apt-get update
+  > sudo apt-get upgrade
+
+All the required package dependencies for building the various SDR components
+can be installed by running the 'install_deps.sh' script with superuser
+privileges. Note that it may be necessary to re-run this script if any of the
+package installation steps fail:
 
   > sudo  ./scripts/install_deps.sh
 
@@ -25,9 +31,9 @@ repositories and they need to be built and installed from source instead. The
 
 The main GNU Radio package from the Raspbian Stretch distribution is
 installed as one of the required dependencies. However, an up to date
-version of the GR-OsmoSDR package needs to be compiled against the latest
-SoapySDR release, together with the out of tree GNU Radio module from this
-repository which contains the dedicated Scratch Radio components:
+version of the gr-limesdr module needs to be compiled from source - together
+with the out of tree GNU Radio module from this repository which contains the
+dedicated Scratch Radio components:
 
   > make GnuRadio
 
