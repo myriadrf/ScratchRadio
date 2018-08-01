@@ -68,3 +68,9 @@ target as follows:
 
 This will remove the extension files from the Scratch2 installation directory
 but leaves the GNU Radio and LimeSuite installations intact.
+
+## Online Documentation
+
+For further information about programming using Scratch Radio, please refer
+to the [Scratch Radio Wiki](https://wiki.myriadrf.org/ScratchRadio).
+
